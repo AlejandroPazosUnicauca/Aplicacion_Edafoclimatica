@@ -1,12 +1,11 @@
-package com.practica.aplicacionedafoclimatica.screens.home
+package com.practica.aplicacionedafoclimatica.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -16,7 +15,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.vector.ImageVector
 
 @Composable
-fun SideBar() {
+fun SideBar(modifier: Modifier = Modifier) {
     Column(
         modifier = Modifier
             .width(200.dp)
@@ -39,7 +38,7 @@ fun SideBar() {
             onClick = { /* Acción de alertas */ }
         )
         SidebarButton(
-            icon = Icons.Default.Calculate,
+            icon = Icons.Default.PlayArrow,
             label = "Calcular abonada",
             onClick = { /* Acción de calcular */ }
         )

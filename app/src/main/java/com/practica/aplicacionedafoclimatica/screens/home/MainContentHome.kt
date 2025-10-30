@@ -12,16 +12,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 
 @Composable
-fun MainContent(modifier: Modifier = Modifier) {
+fun MainContentHome(modifier: Modifier = Modifier) {
     var temperature by remember { mutableStateOf(25) }
     var humidity by remember { mutableStateOf(50) }
     var ph by remember { mutableStateOf(7f) }
@@ -36,12 +37,12 @@ fun MainContent(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.TopCenter
     ) {
         Image(
-            painter = painterResource(id = com.practica.aplicacionedafoclimatica.R.drawable.wallpaper),
+            painter = painterResource(id = com.practica.aplicacionedafoclimatica.R.drawable.wallpaper2),
             contentDescription = "Fondo",
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
-          alpha = 0.9f
-            )
+            alpha = 0.9f
+        )
 
         Column(
             modifier = Modifier
@@ -50,11 +51,17 @@ fun MainContent(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(50.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
             Text(
                 text = "Mediciones Actuales",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF059669)
+                fontSize = 28.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+                fontFamily = FontFamily.Serif,
+                modifier = Modifier
+                    //.background(Color(0xFF065F46), shape = RoundedCornerShape(18.dp))
+                    .padding(horizontal = 28.dp, vertical = 14.dp)
+                    .shadow(8.dp, RoundedCornerShape(18.dp))
             )
             // Primera fila: Temperatura, Humedad, pH
             Row(
