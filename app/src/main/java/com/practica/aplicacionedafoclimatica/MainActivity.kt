@@ -36,9 +36,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.practica.aplicacionedafoclimatica.screens.history.HistoryScreen
-import com.practica.aplicacionedafoclimatica.screens.alerts.AlertScreen
-import com.practica.aplicacionedafoclimatica.screens.home.HomeScreen
+//import com.practica.aplicacionedafoclimatica.screens.home.HomeScreen
+import com.practica.aplicacionedafoclimatica.ui.screens.DrawerMenu
 import com.practica.aplicacionedafoclimatica.ui.theme.AplicacionEdafoclimaticaTheme
 import kotlinx.coroutines.launch
 
@@ -48,16 +47,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AplicacionEdafoclimaticaTheme {
+                // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    //HomeScreen()
-
-                    //HistoryScreen()
-
-                    AlertScreen()
+                    DrawerMenu()
                 }
+
             }
         }
     }
