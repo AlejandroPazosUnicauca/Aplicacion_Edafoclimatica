@@ -40,6 +40,11 @@ fun RegistrosScreen(
     val sensorDataList by viewModel.sensorDataList.collectAsState()
     val status by viewModel.status.collectAsState()
 
+    // 🟢 Conectar automáticamente al entrar en la pantalla
+    LaunchedEffect(Unit) {
+        viewModel.connect()
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
             painter = painterResource(id = R.drawable.wallpaper2),
@@ -57,7 +62,7 @@ fun RegistrosScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- Estado de conexión y botón ---
+            // --- Estado de conexión ---
             Text(
                 text = status,
                 color = Color.White,
@@ -65,62 +70,49 @@ fun RegistrosScreen(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            Button(
-                onClick = { viewModel.connect() },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF059669),
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("🔄 Actualizar datos")
-            }
-
             Spacer(modifier = Modifier.height(16.dp))
 
             if (sensorDataList.isEmpty()) {
-                // Mostrar mensaje si no hay datos
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Sin datos recibidos aún",
+                        text = "Sin datos recibidos aun",
                         color = Color.White,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
             } else {
-                // Obtener lista de años y meses a partir de las fechas
                 val fechas = sensorDataList.mapNotNull { it.fecha }
-                val años = fechas.map { it.substring(0, 4) }.distinct().sorted()
+                val anos = fechas.map { it.substring(0, 4) }.distinct().sorted()
                 val meses = (1..12).map { it.toString().padStart(2, '0') }
 
-                var añoSeleccionado by remember { mutableStateOf(años.last()) }
+                var anoSeleccionado by remember { mutableStateOf(anos.last()) }
                 var mesSeleccionado by remember { mutableStateOf(meses.first()) }
 
                 val datosFiltrados = sensorDataList.filter {
-                    it.fecha.startsWith("$añoSeleccionado-$mesSeleccionado")
+                    it.fecha.startsWith("$anoSeleccionado-$mesSeleccionado")
                 }
 
-                // --- Filtros de año y mes ---
+                // --- Filtros ---
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp),
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    var expandedAño by remember { mutableStateOf(false) }
+                    var expandedAno by remember { mutableStateOf(false) }
                     ExposedDropdownMenuBox(
-                        expanded = expandedAño,
-                        onExpandedChange = { expandedAño = !expandedAño }
+                        expanded = expandedAno,
+                        onExpandedChange = { expandedAno = !expandedAno }
                     ) {
                         TextField(
-                            value = añoSeleccionado,
+                            value = anoSeleccionado,
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Año") },
+                            label = { Text("Ano") },
                             modifier = Modifier
                                 .menuAnchor()
                                 .width(120.dp)
@@ -138,15 +130,15 @@ fun RegistrosScreen(
                             shape = RoundedCornerShape(16.dp)
                         )
                         ExposedDropdownMenu(
-                            expanded = expandedAño,
-                            onDismissRequest = { expandedAño = false }
+                            expanded = expandedAno,
+                            onDismissRequest = { expandedAno = false }
                         ) {
-                            años.forEach { año ->
+                            anos.forEach { ano ->
                                 DropdownMenuItem(
-                                    text = { Text(año) },
+                                    text = { Text(ano) },
                                     onClick = {
-                                        añoSeleccionado = año
-                                        expandedAño = false
+                                        anoSeleccionado = ano
+                                        expandedAno = false
                                     }
                                 )
                             }
@@ -205,6 +197,7 @@ fun RegistrosScreen(
     }
 }
 
+
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun TablaDatos(sensorDataList: List<SensorData>) {
@@ -221,9 +214,19 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
 
     val scrollState = rememberScrollState()
 
-    val campos = SensorData::class.java.declaredFields
-        .map { it.name }
-        .filterNot { it == "id" || it == "fecha" }
+    // 🟢 CLAVE: Definir el orden exacto de las variables aqui
+    val camposOrdenados = listOf(
+        "Lumenes",
+        "Temperatura_ambiente",
+        "Humedad_ambiente",
+        "Lluvia",
+        "Humedad_suelo",
+        "Temperatura_suelo",
+        "Ph",
+        "Fosforo",
+        "Nitrogeno",
+        "Potasio"
+    )
 
     Row(
         modifier = Modifier
@@ -273,7 +276,8 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
             Divider(color = Color(0xFFd1fae5), thickness = 1.dp)
 
             // --- Filas dinámicas ---
-            campos.forEachIndexed { index, campo ->
+            // 💡 Ahora iteramos sobre la lista de campos ordenada
+            camposOrdenados.forEachIndexed { index, campo ->
                 val valores = sensorDataList.map { data ->
                     val field = data::class.java.getDeclaredField(campo)
                     field.isAccessible = true
@@ -288,8 +292,9 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
                         )
                         .padding(vertical = 10.dp, horizontal = 8.dp)
                 ) {
+                    // Reemplazamos la ñ en el nombre de la variable para evitar problemas
                     Text(
-                        text = campo.replace("_", " ").replaceFirstChar { it.uppercase() },
+                        text = campo.replace("_", " ").replace("N", "N").replaceFirstChar { it.uppercase() },
                         fontWeight = FontWeight.Medium,
                         fontSize = 17.sp,
                         modifier = Modifier.width(150.dp),
@@ -307,8 +312,9 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
                     }
                 }
 
-                if (index < campos.size - 1) {
-                    Divider(thickness = 0.5.dp, color = Color(0xFFFF5722))
+                if (index < camposOrdenados.size - 1) {
+                    // Cambie el color del divisor de nuevo a uno que contraste bien (o usa el que tenias originalmente)
+                    Divider(thickness = 0.5.dp, color = Color(0xFFd1fae5))
                 }
             }
         }

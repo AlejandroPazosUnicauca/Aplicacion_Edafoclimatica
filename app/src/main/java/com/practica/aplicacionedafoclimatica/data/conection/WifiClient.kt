@@ -21,8 +21,8 @@ class WifiClient(private val host: String, private val port: Int) {
 
     private suspend fun fetchLatestData(): String? = withContext(Dispatchers.IO) {
         try {
-            val url = URL("http://$host:$port/data/latest")
-            //val url = URL("http://$host:$port")
+            //val url = URL("http://$host:$port/data/latest")
+            val url = URL("http://$host:$port")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.connectTimeout = 5000
