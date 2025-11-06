@@ -207,14 +207,15 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
             color = Color.White,
             fontSize = 18.sp,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         )
         return
     }
 
     val scrollState = rememberScrollState()
 
-    // 🟢 CLAVE: Definir el orden exacto de las variables aqui
     val camposOrdenados = listOf(
         "Lumenes",
         "Temperatura_ambiente",
@@ -228,39 +229,98 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
         "Potasio"
     )
 
+    val fechasHeaders = sensorDataList.map { data ->
+        try {
+            LocalDateTime.parse(data.fecha, DateTimeFormatter.ISO_DATE_TIME)
+                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+        } catch (e: Exception) {
+            data.fecha
+        }
+    }
+
+    // 🔑 1. Definir una altura fija para las filas de datos
+    val alturaDeFila = 70.dp
+
     Row(
         modifier = Modifier
-            .horizontalScroll(scrollState)
-            .padding(16.dp)
+            .padding(horizontal = 16.dp)
+            .shadow(2.dp, RoundedCornerShape(12.dp))
+            .background(Color(0xFFf0fdf4), RoundedCornerShape(12.dp))
+            .padding(12.dp)
+            .fillMaxWidth()
     ) {
+
+        // --- COLUMNA FIJA (Variables) ---
         Column(
-            modifier = Modifier
-                .shadow(2.dp, RoundedCornerShape(12.dp))
-                .background(Color(0xFFf0fdf4), RoundedCornerShape(12.dp))
-                .padding(12.dp),
+            modifier = Modifier.width(150.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // --- Encabezado ---
+            // Encabezado Fijo
             Row(
                 modifier = Modifier
                     .background(Color(0xFFd1fae5), RoundedCornerShape(8.dp))
                     .padding(vertical = 12.dp, horizontal = 8.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically, // Centrar encabezado
+                horizontalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = "Variable",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    modifier = Modifier.width(150.dp),
                     color = Color(0xFF059669),
                     textAlign = TextAlign.Center
                 )
-                sensorDataList.forEach { data ->
-                    val fecha = try {
-                        LocalDateTime.parse(data.fecha, DateTimeFormatter.ISO_DATE_TIME)
-                            .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-                    } catch (e: Exception) {
-                        data.fecha
-                    }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Divider(color = Color(0xFFd1fae5), thickness = 1.dp)
+
+            // Filas Fijas (Nombres de variables)
+            camposOrdenados.forEachIndexed { index, campo ->
+                Row(
+                    modifier = Modifier
+                        .background(
+                            if (index % 2 == 0) Color.White else Color(0xFFf0fdf4),
+                            RoundedCornerShape(6.dp)
+                        )
+                        .fillMaxWidth()
+                        .height(alturaDeFila), // 🔑 2. Aplicar altura fija
+                    // 🔑 3. Centrar el texto verticalmente
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = campo.replace("_", " ").replace("N", "N").replaceFirstChar { it.uppercase() },
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 17.sp,
+                        color = Color(0xFF059669),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 8.dp) // Padding para el texto
+                    )
+                }
+
+                if (index < camposOrdenados.size - 1) {
+                    Divider(thickness = 0.5.dp, color = Color(0xFFd1fae5))
+                }
+            }
+        } // Fin de la Columna Fija
+
+        // --- COLUMNA DESPLAZABLE (Fechas y Datos) ---
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .horizontalScroll(scrollState),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Encabezado Desplazable (Fechas)
+            Row(
+                modifier = Modifier
+                    .background(Color(0xFFd1fae5), RoundedCornerShape(8.dp))
+                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically // Centrar encabezado
+            ) {
+                fechasHeaders.forEach { fecha ->
                     Text(
                         text = fecha,
                         fontWeight = FontWeight.Bold,
@@ -275,8 +335,7 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
             Spacer(modifier = Modifier.height(12.dp))
             Divider(color = Color(0xFFd1fae5), thickness = 1.dp)
 
-            // --- Filas dinámicas ---
-            // 💡 Ahora iteramos sobre la lista de campos ordenada
+            // Filas Desplazables (Valores)
             camposOrdenados.forEachIndexed { index, campo ->
                 val valores = sensorDataList.map { data ->
                     val field = data::class.java.getDeclaredField(campo)
@@ -290,22 +349,18 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
                             if (index % 2 == 0) Color.White else Color(0xFFf0fdf4),
                             RoundedCornerShape(6.dp)
                         )
-                        .padding(vertical = 10.dp, horizontal = 8.dp)
+                        .height(alturaDeFila), // 🔑 2. Aplicar altura fija
+                    // 🔑 3. Centrar el texto verticalmente
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Reemplazamos la ñ en el nombre de la variable para evitar problemas
-                    Text(
-                        text = campo.replace("_", " ").replace("N", "N").replaceFirstChar { it.uppercase() },
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 17.sp,
-                        modifier = Modifier.width(150.dp),
-                        color = Color(0xFF059669),
-                        textAlign = TextAlign.Center
-                    )
+                    // Solo mostramos los valores
                     valores.forEach { valor ->
                         Text(
                             text = valor,
                             fontSize = 17.sp,
-                            modifier = Modifier.width(120.dp),
+                            modifier = Modifier
+                                .width(120.dp)
+                                .padding(horizontal = 8.dp), // Padding para el texto
                             color = Color(0xFF059669),
                             textAlign = TextAlign.Center
                         )
@@ -313,10 +368,9 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
                 }
 
                 if (index < camposOrdenados.size - 1) {
-                    // Cambie el color del divisor de nuevo a uno que contraste bien (o usa el que tenias originalmente)
                     Divider(thickness = 0.5.dp, color = Color(0xFFd1fae5))
                 }
             }
-        }
+        } // Fin de la Columna Desplazable
     }
 }
