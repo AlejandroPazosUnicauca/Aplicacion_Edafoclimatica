@@ -14,12 +14,95 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.practica.aplicacionedafoclimatica.viewmodel.SensorViewModel
 import java.time.format.TextStyle
+
+
+/**
+ * Define el estado de un valor para el código de colores.
+ */
+enum class EstadoValor(val color: Color) {
+    OPTIMO(Color(0xFF059669)),     // Verde
+    ADVERTENCIA(Color(0xFFF59E0B)), // Amarillo/Ámbar
+    PELIGRO(Color(0xFFDC2626))      // Rojo
+}
+
+/**
+ * Almacena los rangos para una variable específica.
+ * optimoStart y optimoEnd definen el rango "Verde".
+ * min y max definen el rango "Amarillo".
+ * Por debajo de min o por encima de max es "Rojo".
+ */
+data class RangosAlerta(
+    val min: Float,
+    val optimoStart: Float,
+    val optimoEnd: Float,
+    val max: Float,
+    val maxAbsoluto: Float // El valor máximo para el medidor (ej. 100% o 25000 Lux)
+)
+
+/**
+ * Contenedor para la información de cada medidor.
+ */
+data class VariableMedida(
+    val label: String,
+    val valor: Float,
+    val rangos: RangosAlerta,
+    val estado: EstadoValor
+)
+
+/**
+ * Colores para el estado de la conexión (sin cambios).
+ */
+@Composable
+fun obtenerColoresEstado(status: String): Pair<Color, Color> {
+    return remember(status) {
+        when {
+            status.contains("Error", ignoreCase = true) ||
+                    status.contains("Desconectado", ignoreCase = true) -> {
+                Color(0xFFDC2626) to Color.White // Rojo
+            }
+            status.contains("Conectando", ignoreCase = true) ||
+                    status.contains("Esperando", ignoreCase = true) -> {
+                Color(0xFFF59E0B) to Color.Black // Naranja
+            }
+            else -> {
+                Color(0xFF10B981) to Color.Black // Verde
+            }
+        }
+    }
+}
+
+/**
+ * Calcula el estado (color) de un valor según sus rangos.
+ */
+fun obtenerEstadoValor(valor: Float, rangos: RangosAlerta): EstadoValor {
+    return when {
+        // Óptimo (Verde)
+        valor >= rangos.optimoStart && valor <= rangos.optimoEnd -> EstadoValor.OPTIMO
+        // Advertencia (Amarillo)
+        (valor >= rangos.min && valor < rangos.optimoStart) ||
+                (valor > rangos.optimoEnd && valor <= rangos.max) -> EstadoValor.ADVERTENCIA
+        // Peligro (Rojo)
+        else -> EstadoValor.PELIGRO
+    }
+}
+
+val rangosLumenes = RangosAlerta(min = 7000f, optimoStart = 12000f, optimoEnd = 20000f, max = 25000f, maxAbsoluto = 25000f)
+val rangosTempAmbiente = RangosAlerta(min = 17f, optimoStart = 19f, optimoEnd = 21.5f, max = 23f, maxAbsoluto = 50f) // Max absoluto 50 (arbitrario)
+val rangosHumedadAmbiente = RangosAlerta(min = 60f, optimoStart = 75f, optimoEnd = 85f, max = 90f, maxAbsoluto = 100f)
+val rangosLluvia = RangosAlerta(min = 1000f, optimoStart = 1660f, optimoEnd = 2000f, max = 3000f, maxAbsoluto = 4000f)
+val rangosHumedadSuelo = RangosAlerta(min = 40f, optimoStart = 75f, optimoEnd = 85f, max = 90f, maxAbsoluto = 100f)
+val rangosTempSuelo = RangosAlerta(min = 17f, optimoStart = 19f, optimoEnd = 22f, max = 27f, maxAbsoluto = 35f) // Max absoluto 50
+val rangosFosforo = RangosAlerta(min = 20f, optimoStart = 20f, optimoEnd = 30f, max = 40f, maxAbsoluto = 50f) // Max absoluto 100
+val rangosNitrogeno = RangosAlerta(min = 60f, optimoStart = 60f, optimoEnd = 80f, max = 100f, maxAbsoluto = 120f)
+val rangosPotasio = RangosAlerta(min = 60f, optimoStart = 60f, optimoEnd = 80f, max = 100f, maxAbsoluto = 120f)
+val rangosPh = RangosAlerta(min = 5.0f, optimoStart = 5.5f, optimoEnd = 6.5f, max = 7.5f, maxAbsoluto = 14f) // Max absoluto 14
 
 
 @Composable
@@ -30,54 +113,39 @@ fun MedidasScreen(navController: NavHostController, viewModel: SensorViewModel) 
 
     // Primer registro recibido
     val latestData = sensorDataList.firstOrNull()
-
-    // Función para determinar el color principal del texto y el contorno
-    val (textColor, strokeColor) = remember(status) {
-        when {
-            // Error, desconectado, fallido
-            status.contains("Error", ignoreCase = true) ||
-                    status.contains("Desconectado", ignoreCase = true) -> {
-                Color(0xFFDC2626) to Color.White // Rojo y contorno blanco
-            }
-            // Conectando, inicializando, esperando...
-            status.contains("Conectando", ignoreCase = true) ||
-                    status.contains("Esperando", ignoreCase = true) -> {
-                Color(0xFFF59E0B) to Color.Black // Naranja y contorno negro
-            }
-            // Conectado, leyendo datos, éxito
-            else -> {
-                Color(0xFF10B981) to Color.Black // Verde y contorno negro
-            }
-        }
-    }
+    val (textColor, strokeColor) = obtenerColoresEstado(status)
 
     // Iniciar la conexión automáticamente
     LaunchedEffect(Unit) {
         viewModel.connect()
     }
 
-    val lumenes = latestData?.Lumenes ?: 0.0
-    val temperaturaAmbiente = latestData?.Temperatura_ambiente ?: 0.0
-    val humedadAmbiente = latestData?.Humedad_ambiente ?: 0.0
-    val lluvia = latestData?.Lluvia ?: 0.0
-    val humedadSuelo = latestData?.Humedad_suelo ?: 0.0
-    val temperaturaSuelo = latestData?.Temperatura_suelo ?: 0.0
+    // Obtenemos los valores o usamos 0 por defecto
+    val lumenes = latestData?.Lumenes?.toFloat() ?: 0f
+    val temperaturaAmbiente = latestData?.Temperatura_ambiente?.toFloat() ?: 0f
+    val humedadAmbiente = latestData?.Humedad_ambiente?.toFloat() ?: 0f
+    val lluvia = latestData?.Lluvia?.toFloat() ?: 0f
+    val humedadSuelo = latestData?.Humedad_suelo?.toFloat() ?: 0f
+    val temperaturaSuelo = latestData?.Temperatura_suelo?.toFloat() ?: 0f
     val ph = latestData?.Ph ?: 0f
-    val fosforo = latestData?.Fosforo ?: 0.0
-    val nitrogeno = latestData?.Nitrogeno ?: 0.0
-    val potasio = latestData?.Potasio ?: 0.0
+    val fosforo = latestData?.Fosforo?.toFloat() ?: 0f
+    val nitrogeno = latestData?.Nitrogeno?.toFloat() ?: 0f
+    val potasio = latestData?.Potasio?.toFloat() ?: 0f
 
     val variables = listOf(
-        Triple("Lúmenes (lm)", lumenes.toFloat(), 1000f),
-        Triple("Temperatura ambiente (°C)", temperaturaAmbiente.toFloat(), 50f),
-        Triple("Humedad ambiente (%)", humedadAmbiente.toFloat(), 100f),
-        Triple("Lluvia (mm)", lluvia.toFloat(), 100f),
-        Triple("Humedad del suelo (%)", humedadSuelo.toFloat(), 100f),
-        Triple("Temperatura del suelo (°C)", temperaturaSuelo.toFloat(), 50f),
-        Triple("Fósforo (P)", fosforo.toFloat(), 100f),
-        Triple("Nitrógeno (N)", nitrogeno.toFloat(), 100f),
-        Triple("Potasio (K)", potasio.toFloat(), 100f)
+        VariableMedida("Lúmenes (Lux)", lumenes, rangosLumenes, obtenerEstadoValor(lumenes, rangosLumenes)),
+        VariableMedida("Temp. ambiente (°C)", temperaturaAmbiente, rangosTempAmbiente, obtenerEstadoValor(temperaturaAmbiente, rangosTempAmbiente)),
+        VariableMedida("Humedad ambiente (%)", humedadAmbiente, rangosHumedadAmbiente, obtenerEstadoValor(humedadAmbiente, rangosHumedadAmbiente)),
+        VariableMedida("Lluvia (mm)", lluvia, rangosLluvia, obtenerEstadoValor(lluvia, rangosLluvia)),
+        VariableMedida("Humedad del suelo (%)", humedadSuelo, rangosHumedadSuelo, obtenerEstadoValor(humedadSuelo, rangosHumedadSuelo)),
+        VariableMedida("Temp. del suelo (°C)", temperaturaSuelo, rangosTempSuelo, obtenerEstadoValor(temperaturaSuelo, rangosTempSuelo)),
+        VariableMedida("Fósforo (P)", fosforo, rangosFosforo, obtenerEstadoValor(fosforo, rangosFosforo)),
+        VariableMedida("Nitrógeno (N)", nitrogeno, rangosNitrogeno, obtenerEstadoValor(nitrogeno, rangosNitrogeno)),
+        VariableMedida("Potasio (K)", potasio, rangosPotasio, obtenerEstadoValor(potasio, rangosPotasio))
     )
+
+    // Calculamos el estado del pH por separado
+    val estadoPh = obtenerEstadoValor(ph, rangosPh)
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -139,18 +207,22 @@ fun MedidasScreen(navController: NavHostController, viewModel: SensorViewModel) 
                         .padding(vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    val item1 = variables[i]
                     VariableCircle(
-                        label = variables[i].first,
-                        value = variables[i].second,
-                        maxValue = variables[i].third,
+                        label = item1.label,
+                        value = item1.valor,
+                        maxValue = item1.rangos.maxAbsoluto,
+                        status = item1.estado, // 👈 Pasamos el estado (color)
                         modifier = Modifier.weight(1f)
                     )
 
                     if (i + 1 < variables.size) {
+                        val item2 = variables[i+1]
                         VariableCircle(
-                            label = variables[i + 1].first,
-                            value = variables[i + 1].second,
-                            maxValue = variables[i + 1].third,
+                            label = item2.label,
+                            value = item2.valor,
+                            maxValue = item2.rangos.maxAbsoluto,
+                            status = item2.estado, // 👈 Pasamos el estado (color)
                             modifier = Modifier.weight(1f)
                         )
                     } else {
@@ -164,6 +236,7 @@ fun MedidasScreen(navController: NavHostController, viewModel: SensorViewModel) 
             PhBar(
                 label = "Nivel de pH",
                 value = ph,
+                status = estadoPh, // 👈 Pasamos el estado (color)
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
@@ -177,35 +250,34 @@ fun VariableCircle(
     label: String,
     value: Float,
     maxValue: Float,
+    status: EstadoValor, // 👈 Acepta el estado
     modifier: Modifier = Modifier
 ) {
+    // El progreso se calcula sobre el máximo absoluto (ej. 100% o 25000 Lux)
     val progress = (value / maxValue).coerceIn(0f, 1f)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween,
         modifier = modifier
-            .height(190.dp) // 👈 Tamaño fijo para todos los cuadros
+            .height(190.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White.copy(alpha = 0.9f))
             .padding(12.dp)
     ) {
-        // 🔹 Título centrado con límite de líneas
         Text(
             text = label,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = Color(0xFF065F46),
-            maxLines = 2, // evita que crezca más de 2 líneas
+            maxLines = 2,
             lineHeight = 18.sp,
             modifier = Modifier.fillMaxWidth(),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            textAlign = TextAlign.Center
         )
 
-        // 🔹 Separador visual
         Spacer(modifier = Modifier.height(6.dp))
 
-        // 🔹 Indicador circular de valor
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
@@ -222,7 +294,7 @@ fun VariableCircle(
                 )
                 // Progreso del valor
                 drawArc(
-                    color = Color(0xFF059669),
+                    color = status.color, // 👈 Usamos el color del estado
                     startAngle = -90f,
                     sweepAngle = 360f * progress,
                     useCenter = false,
@@ -243,8 +315,15 @@ fun VariableCircle(
 }
 
 @Composable
-fun PhBar(label: String, value: Float, modifier: Modifier = Modifier) {
+fun PhBar(
+    label: String,
+    value: Float,
+    status: EstadoValor, // 👈 Acepta el estado
+    modifier: Modifier = Modifier
+) {
+    // El progreso se sigue calculando sobre 14
     val normalized = (value / 14f).coerceIn(0f, 1f)
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
@@ -264,7 +343,10 @@ fun PhBar(label: String, value: Float, modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(normalized)
-                    .background(Color(0xFF059669), shape = RoundedCornerShape(12.dp))
+                    .background(
+                        color = status.color, // 👈 Usamos el color del estado
+                        shape = RoundedCornerShape(12.dp)
+                    )
             )
         }
         Spacer(modifier = Modifier.height(6.dp))

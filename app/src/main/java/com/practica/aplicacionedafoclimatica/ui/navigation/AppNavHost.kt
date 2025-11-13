@@ -55,7 +55,7 @@ fun AppNavHost(navController: NavHostController, viewModel: SensorViewModel) {
             RegistrosScreen(viewModel = viewModel)
         }
         composable(AppScreen.Alertas.route) {
-            AlertasScreen()
+            AlertasScreen(viewModel = viewModel)
         }
     }
 }

@@ -28,6 +28,7 @@ import com.practica.aplicacionedafoclimatica.viewmodel.SensorViewModel
 import com.practica.aplicacionedafoclimatica.data.model.SensorData
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -86,7 +87,8 @@ fun RegistrosScreen(
                 }
             } else {
                 val fechas = sensorDataList.mapNotNull { it.fecha }
-                val anos = fechas.map { it.substring(0, 4) }.distinct().sorted()
+                // Validar que haya fechas antes de intentar acceder al 'last()'
+                val anos = if (fechas.isNotEmpty()) fechas.map { it.substring(0, 4) }.distinct().sorted() else listOf("2025")
                 val meses = (1..12).map { it.toString().padStart(2, '0') }
 
                 var anoSeleccionado by remember { mutableStateOf(anos.last()) }
@@ -191,6 +193,7 @@ fun RegistrosScreen(
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
+                // Pasamos la lista filtrada a la tabla
                 TablaDatos(sensorDataList = datosFiltrados)
             }
         }
@@ -216,6 +219,9 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
 
     val scrollState = rememberScrollState()
 
+    // 🎨 CAMBIO 1: Color de texto más oscuro para mejor contraste
+    val colorTextoTabla = Color(0xFF064e3b)
+
     val camposOrdenados = listOf(
         "Lumenes",
         "Temperatura_ambiente",
@@ -229,17 +235,26 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
         "Potasio"
     )
 
-    val fechasHeaders = sensorDataList.map { data ->
+    // 🔃 CAMBIO 2: Invertir la lista.
+    // El JSON viene [nuevo, ... , viejo]
+    // .reversed() la convierte en [viejo, ... , nuevo]
+    // Así, el más nuevo (primer registro del JSON) queda a la derecha.
+    val listaInvertida = sensorDataList.reversed()
+
+    val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy\nh:mm a", Locale.getDefault())
+
+    // 🕒 CAMBIO 3: Formatear la fecha para incluir la hora
+    val fechasHeaders = listaInvertida.map { data ->
         try {
             LocalDateTime.parse(data.fecha, DateTimeFormatter.ISO_DATE_TIME)
-                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                .format(dateFormatter) // <-- HORA AÑADIDA
         } catch (e: Exception) {
             data.fecha
         }
     }
 
-    // 🔑 1. Definir una altura fija para las filas de datos
     val alturaDeFila = 70.dp
+    val alturaHeader = 65.dp // Altura para el encabezado de 2 líneas
 
     Row(
         modifier = Modifier
@@ -259,16 +274,16 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
             Row(
                 modifier = Modifier
                     .background(Color(0xFFd1fae5), RoundedCornerShape(8.dp))
-                    .padding(vertical = 12.dp, horizontal = 8.dp)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically, // Centrar encabezado
+                    .fillMaxWidth()
+                    .height(alturaHeader), // <-- Altura de encabezado
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = "Variable",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = Color(0xFF059669),
+                    color = colorTextoTabla, // <-- Color oscuro
                     textAlign = TextAlign.Center
                 )
             }
@@ -285,8 +300,7 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
                             RoundedCornerShape(6.dp)
                         )
                         .fillMaxWidth()
-                        .height(alturaDeFila), // 🔑 2. Aplicar altura fija
-                    // 🔑 3. Centrar el texto verticalmente
+                        .height(alturaDeFila),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
@@ -294,9 +308,9 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
                         text = campo.replace("_", " ").replace("N", "N").replaceFirstChar { it.uppercase() },
                         fontWeight = FontWeight.Medium,
                         fontSize = 17.sp,
-                        color = Color(0xFF059669),
+                        color = colorTextoTabla, // <-- Color oscuro
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 8.dp) // Padding para el texto
+                        modifier = Modifier.padding(horizontal = 8.dp)
                     )
                 }
 
@@ -317,16 +331,17 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
             Row(
                 modifier = Modifier
                     .background(Color(0xFFd1fae5), RoundedCornerShape(8.dp))
-                    .padding(vertical = 12.dp, horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically // Centrar encabezado
+                    .height(alturaHeader), // <-- Altura de encabezado
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 fechasHeaders.forEach { fecha ->
                     Text(
-                        text = fecha,
+                        text = fecha, // <-- Fecha y hora
                         fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
+                        fontSize = 16.sp, // <-- Tamaño ajustado para 2 líneas
+                        lineHeight = 18.sp, // <-- Espaciado de línea
                         modifier = Modifier.width(120.dp),
-                        color = Color(0xFF059669),
+                        color = colorTextoTabla, // <-- Color oscuro
                         textAlign = TextAlign.Center
                     )
                 }
@@ -337,7 +352,8 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
 
             // Filas Desplazables (Valores)
             camposOrdenados.forEachIndexed { index, campo ->
-                val valores = sensorDataList.map { data ->
+                // Usamos la lista invertida para obtener los valores
+                val valores = listaInvertida.map { data ->
                     val field = data::class.java.getDeclaredField(campo)
                     field.isAccessible = true
                     field.get(data)?.toString() ?: "-"
@@ -349,8 +365,7 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
                             if (index % 2 == 0) Color.White else Color(0xFFf0fdf4),
                             RoundedCornerShape(6.dp)
                         )
-                        .height(alturaDeFila), // 🔑 2. Aplicar altura fija
-                    // 🔑 3. Centrar el texto verticalmente
+                        .height(alturaDeFila),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Solo mostramos los valores
@@ -360,8 +375,8 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
                             fontSize = 17.sp,
                             modifier = Modifier
                                 .width(120.dp)
-                                .padding(horizontal = 8.dp), // Padding para el texto
-                            color = Color(0xFF059669),
+                                .padding(horizontal = 8.dp),
+                            color = colorTextoTabla, // <-- Color oscuro
                             textAlign = TextAlign.Center
                         )
                     }
