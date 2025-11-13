@@ -35,12 +35,12 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
     private var connectJob: Job? = null
     private var listenJob: Job? = null
 
-    fun setConnection(ip: String, port: Int) {
+    fun setConnection(ip: String, port: Int, path: String) {
         // Desconecta cualquier repositorio anterior
         disconnect()
 
         // Crea el nuevo repositorio con la IP y Puerto
-        repository = SensorRepository(WifiClient(ip, port))
+        repository = SensorRepository(WifiClient(ip, port, path))
         _status.value = "IP configurada. Conectando..."
 
         // Marcamos como configurado después de que el usuario proporciona IP/Puerto

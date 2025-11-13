@@ -47,6 +47,8 @@ fun ConfigScreen(
     // Estados para los campos de texto
     var ip by remember { mutableStateOf("192.168.") } // IP por defecto
     var port by remember { mutableStateOf("5001") } // Puerto por defecto
+    var urlPath by remember { mutableStateOf("") } // URL por defecto
+
     val status by viewModel.status.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -103,6 +105,17 @@ fun ConfigScreen(
                     colors = textFieldColors
                 )
 
+                OutlinedTextField(
+                    value = urlPath,
+                    onValueChange = { urlPath = it },
+                    label = { Text("Ruta (ej: /api/datos)") },
+                    placeholder = { Text("Dejar vacío para usar la raíz (/)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    singleLine = true,
+                    colors = textFieldColors
+                )
+
                 // Texto de estado
                 Text(
                     text = status,
@@ -114,7 +127,7 @@ fun ConfigScreen(
                 Button(
                     onClick = {
                         // 1. Llama al ViewModel para establecer la conexión
-                        viewModel.setConnection(ip, port.toIntOrNull() ?: 5001)
+                        viewModel.setConnection(ip = ip, port.toIntOrNull() ?: 5001, path = urlPath)
 
                         // 2. Navega a la pantalla principal
                         onConnectSuccess()

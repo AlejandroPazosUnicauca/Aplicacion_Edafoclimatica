@@ -7,8 +7,19 @@ import java.net.URL
 import kotlin.io.bufferedReader
 import kotlin.io.readText
 import kotlin.io.use
+import android.util.Log
 
-class WifiClient(private val host: String, private val port: Int) {
+class WifiClient(private val host: String, private val port: Int, private val path: String) {
+    // Función auxiliar para construir la URL completa con la ruta
+    private fun buildUrl(): URL {
+        // Aseguramos que la ruta comience con '/' si no está vacía
+        val finalPath = if (path.isBlank() || path.startsWith('/')) path else "/$path"
+
+        // Si es una prueba de conexión, usamos solo la raíz para una verificación rápida
+        //val effectivePath = if (isTest) "/" else finalPath
+
+        return URL("http://$host:$port$finalPath")
+    }
 
     /**
      * Intenta establecer la URL y realizar una conexión de prueba para validar
@@ -17,7 +28,7 @@ class WifiClient(private val host: String, private val port: Int) {
      */
     suspend fun connect(): Boolean = withContext(Dispatchers.IO) {
         return@withContext try {
-            val url = URL("http://$host:$port")
+            val url = buildUrl()
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
 
@@ -55,7 +66,9 @@ class WifiClient(private val host: String, private val port: Int) {
     private suspend fun fetchLatestData(): String? = withContext(Dispatchers.IO) {
         try {
             //val url = URL("http://$host:$port/data/latest")
-            val url = URL("http://$host:$port")
+            val url = buildUrl()
+            print("Solicitando datos a la URL: $url\n")
+            Log.i("MiTag", "Solicitando datos a la URL: $url")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.connectTimeout = 5000
