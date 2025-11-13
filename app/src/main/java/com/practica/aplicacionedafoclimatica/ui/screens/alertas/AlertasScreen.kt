@@ -28,142 +28,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.practica.aplicacionedafoclimatica.data.model.SensorData
 import com.practica.aplicacionedafoclimatica.viewmodel.SensorViewModel
 // Importamos la lógica de rangos y estados de MedidasScreen
-import com.practica.aplicacionedafoclimatica.ui.screens.medidas.* /**
- * Data class para almacenar la información de una alerta filtrada.
- */
-data class AlertaInfo(
-    val variable: String,
-    val valorActual: String,
-    val recomendacion: String,
-    val estado: EstadoValor // Para colorear el ícono
-)
-
-/**
- * Función composable que filtra los datos del sensor y devuelve solo las alertas activas.
- */
-@Composable
-fun obtenerAlertas(latestData: SensorData?): List<AlertaInfo> {
-    val alertas = remember(latestData) {
-        val listaAlertas = mutableListOf<AlertaInfo>()
-        if (latestData == null) return@remember emptyList<AlertaInfo>()
-
-        // Convertimos los valores
-        val lumenes = latestData.Lumenes.toFloat()
-        val tempAmbiente = latestData.Temperatura_ambiente.toFloat()
-        val humedadAmbiente = latestData.Humedad_ambiente.toFloat()
-        val humedadSuelo = latestData.Humedad_suelo.toFloat()
-        val ph = latestData.Ph
-        val fosforo = latestData.Fosforo.toFloat()
-        val nitrogeno = latestData.Nitrogeno.toFloat()
-        val potasio = latestData.Potasio.toFloat()
-
-        // --- Lógica de Alertas Basada en Recomendaciones ---
-
-        // 1. Lúmenes (Lux > 20000)
-        // Usamos optimoEnd de rangosLumenes que es 20000f
-        if (lumenes > rangosLumenes.optimoEnd) {
-            listaAlertas.add(
-                AlertaInfo(
-                    variable = "Iluminación Excesiva",
-                    valorActual = "${String.format("%.1f", lumenes)} Lux",
-                    recomendacion = "Lux > 20000: Recomendar sombra parcial.",
-                    estado = EstadoValor.PELIGRO
-                )
-            )
-        }
-
-        // 2. Humedad del Suelo (> 85%)
-        // Usamos optimoEnd de rangosHumedadSuelo que es 85f
-        if (humedadSuelo > rangosHumedadSuelo.optimoEnd) {
-            listaAlertas.add(
-                AlertaInfo(
-                    variable = "Exceso de Humedad (Suelo)",
-                    valorActual = "${String.format("%.1f", humedadSuelo)}%",
-                    recomendacion = "Humedad del suelo > 85%: Evaluar drenaje.",
-                    estado = EstadoValor.PELIGRO
-                )
-            )
-        }
-
-        // 3. Riesgo de Roya (Combinada)
-        // HR > 85% + temp > 21.5 °C
-        if (humedadAmbiente > rangosHumedadAmbiente.optimoEnd && tempAmbiente > rangosTempAmbiente.optimoEnd) {
-            listaAlertas.add(
-                AlertaInfo(
-                    variable = "Riesgo de Roya",
-                    valorActual = "HR: ${humedadAmbiente}% | Temp: ${tempAmbiente}°C",
-                    recomendacion = "HR > 85% y Temp > 21.5°C: Aumentar monitoreo y ventilación.",
-                    estado = EstadoValor.PELIGRO
-                )
-            )
-        }
-
-        // 4. pH Bajo (< 5.0)
-        if (ph < rangosPh.min) {
-            listaAlertas.add(
-                AlertaInfo(
-                    variable = "pH Bajo (Acidez)",
-                    valorActual = ph.toString(),
-                    recomendacion = "pH < 5.0: Aplicar cal dolomítica o calcita.",
-                    estado = EstadoValor.PELIGRO
-                )
-            )
-        }
-
-        // 5. Nitrógeno Bajo (< 60)
-        if (nitrogeno < rangosNitrogeno.min) {
-            listaAlertas.add(
-                AlertaInfo(
-                    variable = "Nitrógeno Bajo (N)",
-                    valorActual = "${String.format("%.1f", nitrogeno)}",
-                    recomendacion = "Bajo N: Aplicar fertilizante nitrogenado.",
-                    estado = EstadoValor.PELIGRO
-                )
-            )
-        }
-
-        // 6. Fósforo Bajo (< 20)
-        if (fosforo < rangosFosforo.min) {
-            listaAlertas.add(
-                AlertaInfo(
-                    variable = "Fósforo Bajo (P)",
-                    valorActual = "${String.format("%.1f", fosforo)}",
-                    recomendacion = "Bajo P: Aplicar fuentes de fósforo (fosfato diamónico, roca fosfórica).",
-                    estado = EstadoValor.PELIGRO
-                )
-            )
-        }
-
-        // 7. Potasio Bajo (< 60)
-        if (potasio < rangosPotasio.min) {
-            listaAlertas.add(
-                AlertaInfo(
-                    variable = "Potasio Bajo (K)",
-                    valorActual = "${String.format("%.1f", potasio)}",
-                    recomendacion = "Bajo K: Aplicar cloruro o sulfato de potasio.",
-                    estado = EstadoValor.PELIGRO
-                )
-            )
-        }
-
-        return@remember listaAlertas
-    }
-
-    return alertas
-}
-
+import com.practica.aplicacionedafoclimatica.ui.screens.medidas.*
 
 @Composable
 fun AlertasScreen(viewModel: SensorViewModel) {
-    val sensorDataList by viewModel.sensorDataList.collectAsState()
     val status by viewModel.status.collectAsState()
-    val latestData = sensorDataList.firstOrNull()
-
+    val alertas by viewModel.alertasActivas.collectAsState()
     // Obtenemos los colores de estado (Verde, Naranja, Rojo)
     val (textColor, strokeColor) = obtenerColoresEstado(status)
-
-    // Obtenemos la lista de alertas filtradas
-    val alertas = obtenerAlertas(latestData)
 
     Box(
         modifier = Modifier.fillMaxSize(),

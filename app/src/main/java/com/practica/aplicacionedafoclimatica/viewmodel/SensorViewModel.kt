@@ -6,69 +6,63 @@ import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.practica.aplicacionedafoclimatica.data.model.SensorData
+import com.practica.aplicacionedafoclimatica.data.model.Notificacion
+import com.practica.aplicacionedafoclimatica.data.model.TipoNotificacion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import com.practica.aplicacionedafoclimatica.data.repository.SensorRepository
 import com.practica.aplicacionedafoclimatica.data.conection.WifiClient
+import com.practica.aplicacionedafoclimatica.ui.screens.medidas.*
 import kotlinx.coroutines.Job
 
-
 class SensorViewModel(application: Application) : AndroidViewModel(application) {
-    //private val repository = SensorRepository(WifiClient("192.168.4.2", 5001))
-    private var repository : SensorRepository? = null
+    private var repository: SensorRepository? = null
     private val _sensorDataList = MutableStateFlow<List<SensorData>>(emptyList())
     val sensorDataList: StateFlow<List<SensorData>> = _sensorDataList
 
     private val _status = MutableStateFlow("Esperando configuración de IP...")
     val status: StateFlow<String> = _status
 
-    // NUEVO: Estado para saber si la IP/Puerto ha sido configurada
     private val _isConfigured = MutableStateFlow(false)
     val isConfigured: StateFlow<Boolean> = _isConfigured
 
-    private val gson = Gson()
+    private val _alertasActivas = MutableStateFlow<List<AlertaInfo>>(emptyList())
+    val alertasActivas: StateFlow<List<AlertaInfo>> = _alertasActivas
 
-    // Controladores de Corutinas
+    // NUEVO: flujo para notificaciones
+    private val _notificaciones = MutableStateFlow<List<Notificacion>>(emptyList())
+    val notificaciones: StateFlow<List<Notificacion>> = _notificaciones
+
+    private val gson = Gson()
     private var isListening = false
     private var connectJob: Job? = null
     private var listenJob: Job? = null
 
     fun setConnection(ip: String, port: Int, path: String) {
-        // Desconecta cualquier repositorio anterior
         disconnect()
-
-        // Crea el nuevo repositorio con la IP y Puerto
         repository = SensorRepository(WifiClient(ip, port, path))
         _status.value = "IP configurada. Conectando..."
-
-        // Marcamos como configurado después de que el usuario proporciona IP/Puerto
         _isConfigured.value = true
-
-        // Inicia la conexión automáticamente
         connect()
     }
 
-    fun connect(){
-        // No conectar si el repositorio no está inicializado
+    fun connect() {
         if (repository == null) {
             _status.value = "Error: IP y Puerto no configurados."
             _isConfigured.value = false
             return
         }
-
-        // No reconectar si ya está escuchando
         if (isListening) return
 
-        connectJob?.cancel() // Cancela intentos anteriores
-
+        connectJob?.cancel()
         connectJob = viewModelScope.launch {
-            val connected = repository?.connect() // Llamada segura
+            val connected = repository?.connect()
             if (connected == true) {
                 _status.value = "Conectado al sensor"
                 isListening = true
-                listen() // Inicia el bucle de escucha
+                listen()
             } else {
                 _status.value = "Error al conectar"
                 isListening = false
@@ -77,18 +71,19 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun listen() {
-        listenJob?.cancel() // Cancela bucles anteriores
+        listenJob?.cancel()
         listenJob = viewModelScope.launch {
             while (isListening) {
-                val msg = repository?.readData() // Llamada segura
+                val msg = repository?.readData()
                 msg?.let {
-                    println("Datos recibidos: $it")
                     try {
                         val listType = object : TypeToken<List<SensorData>>() {}.type
                         val dataList: List<SensorData> = gson.fromJson(it, listType)
                         _sensorDataList.value = dataList
+                        val alertas = calcularAlertas(dataList.firstOrNull())
+                        _alertasActivas.value = alertas
+                        manejarNotificaciones(alertas)
                     } catch (e: Exception) {
-                        println("Error parseando JSON: ${e.message}")
                         _status.value = "Error en datos"
                     }
                 }
@@ -97,13 +92,75 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private fun manejarNotificaciones(alertas: List<AlertaInfo>) {
+        val nuevasNotificaciones = mutableListOf<Notificacion>()
+        val actuales = _notificaciones.value.toMutableList()
+
+        // Agregar nuevas notificaciones solo si no existen
+        alertas.forEach { alerta ->
+            if (actuales.none { it.titulo == alerta.variable }) {
+                nuevasNotificaciones.add(
+                    Notificacion(
+                        titulo = alerta.variable,
+                        descripcion = alerta.recomendacion,
+                        tipo = TipoNotificacion.ALERTA
+                    )
+                )
+            }
+        }
+
+        // Eliminar notificaciones resueltas
+        val actualizadas = actuales.filter { noti ->
+            alertas.any { it.variable == noti.titulo }
+        }
+
+        _notificaciones.value = actualizadas + nuevasNotificaciones
+    }
+
+    private fun calcularAlertas(latestData: SensorData?): List<AlertaInfo> {
+        val listaAlertas = mutableListOf<AlertaInfo>()
+        if (latestData == null) return emptyList()
+
+        val lumenes = latestData.Lumenes.toFloat()
+        val tempAmbiente = latestData.Temperatura_ambiente.toFloat()
+        val humedadAmbiente = latestData.Humedad_ambiente.toFloat()
+        val humedadSuelo = latestData.Humedad_suelo.toFloat()
+        val ph = latestData.Ph
+        val fosforo = latestData.Fosforo.toFloat()
+        val nitrogeno = latestData.Nitrogeno.toFloat()
+        val potasio = latestData.Potasio.toFloat()
+
+        if (lumenes > rangosLumenes.optimoEnd) listaAlertas.add(
+            AlertaInfo("Iluminación Excesiva", "${lumenes} Lux", "Recomendar sombra parcial.", EstadoValor.PELIGRO)
+        )
+        if (humedadSuelo > rangosHumedadSuelo.optimoEnd) listaAlertas.add(
+            AlertaInfo("Exceso de Humedad (Suelo)", "${humedadSuelo}%", "Evaluar drenaje.", EstadoValor.PELIGRO)
+        )
+        if (humedadAmbiente > rangosHumedadAmbiente.optimoEnd && tempAmbiente > rangosTempAmbiente.optimoEnd) listaAlertas.add(
+            AlertaInfo("Riesgo de Roya", "HR: $humedadAmbiente% | Temp: $tempAmbiente°C", "Aumentar monitoreo y ventilación.", EstadoValor.PELIGRO)
+        )
+        if (ph < rangosPh.min) listaAlertas.add(
+            AlertaInfo("pH Bajo (Acidez)", ph.toString(), "Aplicar cal dolomítica o calcita.", EstadoValor.PELIGRO)
+        )
+        if (nitrogeno < rangosNitrogeno.min) listaAlertas.add(
+            AlertaInfo("Nitrógeno Bajo (N)", nitrogeno.toString(), "Aplicar fertilizante nitrogenado.", EstadoValor.PELIGRO)
+        )
+        if (fosforo < rangosFosforo.min) listaAlertas.add(
+            AlertaInfo("Fósforo Bajo (P)", fosforo.toString(), "Aplicar fuentes de fósforo.", EstadoValor.PELIGRO)
+        )
+        if (potasio < rangosPotasio.min) listaAlertas.add(
+            AlertaInfo("Potasio Bajo (K)", potasio.toString(), "Aplicar cloruro o sulfato de potasio.", EstadoValor.PELIGRO)
+        )
+
+        return listaAlertas
+    }
 
     private fun disconnect() {
-        isListening = false // Detiene el bucle en listen()
+        isListening = false
         connectJob?.cancel()
         listenJob?.cancel()
-        repository?.disconnect() // Cierra el socket
-        repository = null // Limpia el repositorio
+        repository?.disconnect()
+        repository = null
         _status.value = "Desconectado"
     }
 
@@ -112,4 +169,3 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
         super.onCleared()
     }
 }
-

@@ -56,6 +56,13 @@ data class VariableMedida(
     val estado: EstadoValor
 )
 
+data class AlertaInfo(
+    val variable: String,
+    val valorActual: String,
+    val recomendacion: String,
+    val estado: EstadoValor // Para colorear el ícono
+)
+
 /**
  * Colores para el estado de la conexión (sin cambios).
  */
@@ -93,7 +100,7 @@ fun obtenerEstadoValor(valor: Float, rangos: RangosAlerta): EstadoValor {
     }
 }
 
-val rangosLumenes = RangosAlerta(min = 7000f, optimoStart = 12000f, optimoEnd = 20000f, max = 25000f, maxAbsoluto = 25000f)
+val rangosLumenes = RangosAlerta(min = 7000f, optimoStart = 12000f, optimoEnd = 20000f, max = 25000f, maxAbsoluto = 30000f)
 val rangosTempAmbiente = RangosAlerta(min = 17f, optimoStart = 19f, optimoEnd = 21.5f, max = 23f, maxAbsoluto = 50f) // Max absoluto 50 (arbitrario)
 val rangosHumedadAmbiente = RangosAlerta(min = 60f, optimoStart = 75f, optimoEnd = 85f, max = 90f, maxAbsoluto = 100f)
 val rangosLluvia = RangosAlerta(min = 1000f, optimoStart = 1660f, optimoEnd = 2000f, max = 3000f, maxAbsoluto = 4000f)
