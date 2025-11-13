@@ -85,6 +85,7 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
                         manejarNotificaciones(alertas)
                     } catch (e: Exception) {
                         _status.value = "Error en datos"
+                        println("Excepcion: $e")
                     }
                 }
                 delay(5000)
@@ -124,32 +125,99 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
         val lumenes = latestData.Lumenes.toFloat()
         val tempAmbiente = latestData.Temperatura_ambiente.toFloat()
         val humedadAmbiente = latestData.Humedad_ambiente.toFloat()
+        val lluvia = latestData.Lluvia.toFloat()
         val humedadSuelo = latestData.Humedad_suelo.toFloat()
+        val tempSuelo = latestData.Temperatura_suelo.toFloat()
         val ph = latestData.Ph
         val fosforo = latestData.Fosforo.toFloat()
         val nitrogeno = latestData.Nitrogeno.toFloat()
         val potasio = latestData.Potasio.toFloat()
 
-        if (lumenes > rangosLumenes.optimoEnd) listaAlertas.add(
-            AlertaInfo("Iluminación Excesiva", "${lumenes} Lux", "Recomendar sombra parcial.", EstadoValor.PELIGRO)
+        // --- Alertas de Temperatura Ambiente ---
+        if (tempAmbiente > rangosTempAmbiente.max) listaAlertas.add(
+            AlertaInfo("Temperatura Ambiente Alta", "${tempAmbiente}°C", "Aumentar ventilación o proveer sombra.", EstadoValor.PELIGRO)
         )
-        if (humedadSuelo > rangosHumedadSuelo.optimoEnd) listaAlertas.add(
-            AlertaInfo("Exceso de Humedad (Suelo)", "${humedadSuelo}%", "Evaluar drenaje.", EstadoValor.PELIGRO)
+        if (tempAmbiente < rangosTempAmbiente.min) listaAlertas.add(
+            AlertaInfo("Temperatura Ambiente Baja", "${tempAmbiente}°C", "Considerar calefacción o protección térmica.", EstadoValor.PELIGRO)
         )
+
+        // --- Alertas de Humedad Ambiente ---
+        if (humedadAmbiente > rangosHumedadAmbiente.max) listaAlertas.add(
+            AlertaInfo("Humedad Ambiente Excesiva", "${humedadAmbiente}%", "Mejorar la ventilación.", EstadoValor.PELIGRO)
+        )
+        if (humedadAmbiente < rangosHumedadAmbiente.min) listaAlertas.add(
+            AlertaInfo("Humedad Ambiente Baja", "${humedadAmbiente}%", "Aumentar la humedad con nebulizadores o riego.", EstadoValor.PELIGRO)
+        )
+
+        // --- ALERTA ESPECIAL: Riesgo de Roya (T y HR altas) ---
         if (humedadAmbiente > rangosHumedadAmbiente.optimoEnd && tempAmbiente > rangosTempAmbiente.optimoEnd) listaAlertas.add(
-            AlertaInfo("Riesgo de Roya", "HR: $humedadAmbiente% | Temp: $tempAmbiente°C", "Aumentar monitoreo y ventilación.", EstadoValor.PELIGRO)
+            AlertaInfo("Riesgo Alto de Roya", "HR: $humedadAmbiente% | Temp: $tempAmbiente°C", "Aumentar monitoreo y ventilación inmediatamente.", EstadoValor.PELIGRO)
+        )
+
+        // --- Alertas de Lúmenes ---
+        if (lumenes > rangosLumenes.max) listaAlertas.add(
+            AlertaInfo("Iluminación Excesiva", "${lumenes} Lux", "Proveer sombra parcial para evitar quemaduras.", EstadoValor.PELIGRO)
+        )
+        if (lumenes < rangosLumenes.min) listaAlertas.add(
+            AlertaInfo("Iluminación Insuficiente", "${lumenes} Lux", "Añadir iluminación artificial complementaria.", EstadoValor.PELIGRO)
+        )
+
+        // --- Alertas de Humedad del Suelo ---
+        if (humedadSuelo > rangosHumedadSuelo.max) listaAlertas.add(
+            AlertaInfo("Exceso de Humedad (Suelo)", "${humedadSuelo}%", "Evaluar drenaje y reducir frecuencia de riego.", EstadoValor.PELIGRO)
+        )
+        if (humedadSuelo < rangosHumedadSuelo.min) listaAlertas.add(
+            AlertaInfo("Sequía (Suelo)", "${humedadSuelo}%", "Incrementar el riego de manera inmediata.", EstadoValor.PELIGRO)
+        )
+
+        // --- Alertas de Temperatura del Suelo ---
+        // Asumiendo que el rango óptimo es 19°C - 22°C (rangosTempSuelo.optimoStart y rangosTempSuelo.optimoEnd)
+        if (tempSuelo > rangosTempSuelo.max) listaAlertas.add(
+            AlertaInfo("Temperatura del Suelo Alta", "${tempSuelo}°C", "Revisar los valores de operación o aplicar acolchado.", EstadoValor.PELIGRO)
+        )
+        if (tempSuelo < rangosTempSuelo.min) listaAlertas.add(
+            AlertaInfo("Temperatura del Suelo Baja", "${tempSuelo}°C", "Revisar los valores de operación o aplicar acolchado.", EstadoValor.PELIGRO)
+        )
+
+        // --- Alertas de pH ---
+        if (ph > rangosPh.max) listaAlertas.add(
+            AlertaInfo("pH Alto (Alcalinidad)", ph.toString(), "Aplicar azufre elemental o sulfato de aluminio.", EstadoValor.PELIGRO)
         )
         if (ph < rangosPh.min) listaAlertas.add(
             AlertaInfo("pH Bajo (Acidez)", ph.toString(), "Aplicar cal dolomítica o calcita.", EstadoValor.PELIGRO)
         )
+
+        // --- Alertas de Nitrógeno (N) ---
         if (nitrogeno < rangosNitrogeno.min) listaAlertas.add(
             AlertaInfo("Nitrógeno Bajo (N)", nitrogeno.toString(), "Aplicar fertilizante nitrogenado.", EstadoValor.PELIGRO)
         )
+        // Nota: No se requiere Nitrogeno Max, ya que la deficiencia es el principal problema.
+        if (nitrogeno > rangosNitrogeno.max) listaAlertas.add(
+            AlertaInfo("Nitrógeno Excesivo (N)", nitrogeno.toString(), "Revisar la fertilización reciente.", EstadoValor.PELIGRO)
+        )
+
+        // --- Alertas de Fósforo (P) ---
         if (fosforo < rangosFosforo.min) listaAlertas.add(
             AlertaInfo("Fósforo Bajo (P)", fosforo.toString(), "Aplicar fuentes de fósforo.", EstadoValor.PELIGRO)
         )
+        if (fosforo > rangosFosforo.max) listaAlertas.add(
+            AlertaInfo("Fósforo Excesivo (P)", fosforo.toString(), "Revisar la fertilización reciente.", EstadoValor.PELIGRO)
+        )
+
+        // --- Alertas de Potasio (K) ---
         if (potasio < rangosPotasio.min) listaAlertas.add(
             AlertaInfo("Potasio Bajo (K)", potasio.toString(), "Aplicar cloruro o sulfato de potasio.", EstadoValor.PELIGRO)
+        )
+        if (potasio > rangosPotasio.max) listaAlertas.add(
+            AlertaInfo("Potasio Excesivo (K)", potasio.toString(), "Revisar la fertilización reciente.", EstadoValor.PELIGRO)
+        )
+
+        // --- Alertas de Lluvia ---
+        if (lluvia > rangosLluvia.max) listaAlertas.add(
+            AlertaInfo("Precipitación Excesiva", "${lluvia} mm", "Proteger el cultivo del exceso de lluvia.", EstadoValor.PELIGRO)
+        )
+        if (lluvia < rangosLluvia.min) listaAlertas.add(
+            AlertaInfo("Falta de Precipitación", "${lluvia} mm", "Aumentar la frecuencia de riego, si es necesario.", EstadoValor.PELIGRO)
         )
 
         return listaAlertas
