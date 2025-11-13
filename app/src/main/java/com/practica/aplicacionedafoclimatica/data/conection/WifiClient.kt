@@ -10,9 +10,42 @@ import kotlin.io.use
 
 class WifiClient(private val host: String, private val port: Int) {
 
+    /**
+     * Intenta establecer la URL y realizar una conexión de prueba para validar
+     * que la IP y el Puerto son válidos y que el servidor está escuchando.
+     * @return True si la prueba HTTP fue exitosa (código 200).
+     */
     suspend fun connect(): Boolean = withContext(Dispatchers.IO) {
-        // No hay conexión persistente, solo devolvemos true para indicar que podemos hacer peticiones
-        true
+        return@withContext try {
+            val url = URL("http://$host:$port")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+
+            // Usamos un timeout corto solo para la prueba de conexión
+            connection.connectTimeout = 3000 // 3 segundos
+            connection.readTimeout = 3000  // 3 segundos
+
+            connection.connect() // Intentar la conexión física
+            val responseCode = connection.responseCode
+            connection.disconnect()
+
+            // Solo consideramos la conexión exitosa si recibimos un código 200 (OK)
+            val isConnected = responseCode == HttpURLConnection.HTTP_OK
+
+            if (isConnected) {
+                println("Conexión de prueba exitosa (Código 200).")
+            } else {
+                println("Conexión de prueba fallida. Código HTTP: $responseCode")
+            }
+
+            isConnected
+
+        } catch (e: Exception) {
+            // Capturamos cualquier error de red real: UnknownHost, Timeout, etc.
+            println("Error al intentar conexión de prueba: ${e.message}")
+            // e.printStackTrace() // Solo si es necesario
+            false // Si hay una excepción, la conexión falla.
+        }
     }
 
     suspend fun receiveData(): String? = fetchLatestData()
@@ -31,11 +64,11 @@ class WifiClient(private val host: String, private val port: Int) {
             val responseCode = connection.responseCode
             if (responseCode == HttpURLConnection.HTTP_OK) {
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
-                println("Datos recibidos del servidor: $response")
+                //println("Datos recibidos del servidor: $response")
                 connection.disconnect()
                 response
             } else {
-                println("Error HTTP: $responseCode")
+                //println("Error HTTP: $responseCode")
                 connection.disconnect()
                 null
             }

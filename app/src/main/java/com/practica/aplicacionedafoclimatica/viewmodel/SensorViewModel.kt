@@ -12,64 +12,104 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import com.practica.aplicacionedafoclimatica.data.repository.SensorRepository
 import com.practica.aplicacionedafoclimatica.data.conection.WifiClient
+import kotlinx.coroutines.Job
 
 
 class SensorViewModel(application: Application) : AndroidViewModel(application) {
-    //private val wifiClient = WifiClient("192.168.137.53", 5001)
-    //private val repository = SensorRepository(WifiClient("192.168.137.53", 5001))
-    //private val wifiClient = WifiClient("192.168.80.23", 5001)
-    private val repository = SensorRepository(WifiClient("192.168.80.23", 5001))
+    //private val repository = SensorRepository(WifiClient("192.168.4.2", 5001))
+    private var repository : SensorRepository? = null
     private val _sensorDataList = MutableStateFlow<List<SensorData>>(emptyList())
     val sensorDataList: StateFlow<List<SensorData>> = _sensorDataList
 
-    private val _status = MutableStateFlow("Esperando conexión...")
+    private val _status = MutableStateFlow("Esperando configuración de IP...")
     val status: StateFlow<String> = _status
+
+    // NUEVO: Estado para saber si la IP/Puerto ha sido configurada
+    private val _isConfigured = MutableStateFlow(false)
+    val isConfigured: StateFlow<Boolean> = _isConfigured
 
     private val gson = Gson()
 
+    // Controladores de Corutinas
+    private var isListening = false
+    private var connectJob: Job? = null
+    private var listenJob: Job? = null
+
+    fun setConnection(ip: String, port: Int) {
+        // Desconecta cualquier repositorio anterior
+        disconnect()
+
+        // Crea el nuevo repositorio con la IP y Puerto
+        repository = SensorRepository(WifiClient(ip, port))
+        _status.value = "IP configurada. Conectando..."
+
+        // Marcamos como configurado después de que el usuario proporciona IP/Puerto
+        _isConfigured.value = true
+
+        // Inicia la conexión automáticamente
+        connect()
+    }
+
     fun connect(){
-        viewModelScope.launch {
-            val connected = repository.connect()
-            if (connected) {
+        // No conectar si el repositorio no está inicializado
+        if (repository == null) {
+            _status.value = "Error: IP y Puerto no configurados."
+            _isConfigured.value = false
+            return
+        }
+
+        // No reconectar si ya está escuchando
+        if (isListening) return
+
+        connectJob?.cancel() // Cancela intentos anteriores
+
+        connectJob = viewModelScope.launch {
+            val connected = repository?.connect() // Llamada segura
+            if (connected == true) {
                 _status.value = "Conectado al sensor"
-                listen()
+                isListening = true
+                listen() // Inicia el bucle de escucha
             } else {
                 _status.value = "Error al conectar"
+                isListening = false
             }
         }
     }
 
     private fun listen() {
-        viewModelScope.launch {
-            while (true) {
-                val msg = repository.readData()
+        listenJob?.cancel() // Cancela bucles anteriores
+        listenJob = viewModelScope.launch {
+            while (isListening) {
+                val msg = repository?.readData() // Llamada segura
                 msg?.let {
                     println("Datos recibidos: $it")
-
                     try {
-                        // Convertir JSON -> Lista de SensorData
                         val listType = object : TypeToken<List<SensorData>>() {}.type
                         val dataList: List<SensorData> = gson.fromJson(it, listType)
-
-                        // Actualizar flujo (UI observará este valor)
                         _sensorDataList.value = dataList
-
                     } catch (e: Exception) {
                         println("Error parseando JSON: ${e.message}")
+                        _status.value = "Error en datos"
                     }
                 }
-
-                delay(5000) // Esperar 5 segundos antes de leer de nuevo
+                delay(5000)
             }
         }
     }
 
 
-    override fun onCleared() {
-        repository.disconnect()
-        super.onCleared()
+    private fun disconnect() {
+        isListening = false // Detiene el bucle en listen()
+        connectJob?.cancel()
+        listenJob?.cancel()
+        repository?.disconnect() // Cierra el socket
+        repository = null // Limpia el repositorio
+        _status.value = "Desconectado"
     }
 
-
+    override fun onCleared() {
+        disconnect()
+        super.onCleared()
+    }
 }
 

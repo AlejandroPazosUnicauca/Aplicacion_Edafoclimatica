@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
@@ -31,5 +32,11 @@ sealed class AppScreen(
         route = "alertas",
         title = "Alertas",
         icon = Icons.Default.Notifications
+    )
+
+    object Configuracion : AppScreen(
+        route = "config",
+        title = "Configuración",
+        icon = Icons.Default.Settings
     )
 }

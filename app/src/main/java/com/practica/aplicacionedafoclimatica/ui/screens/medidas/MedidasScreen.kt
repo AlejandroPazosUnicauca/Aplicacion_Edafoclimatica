@@ -17,18 +17,39 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import com.practica.aplicacionedafoclimatica.viewmodel.SensorViewModel
 import java.time.format.TextStyle
 
 
 @Composable
-fun MedidasScreen(viewModel: SensorViewModel = viewModel()) {
+fun MedidasScreen(navController: NavHostController, viewModel: SensorViewModel) {
     // Se obtienen los datos del ViewModel
     val sensorDataList by viewModel.sensorDataList.collectAsState()
     val status by viewModel.status.collectAsState()
 
-    // Último registro recibido
-    val latestData = sensorDataList.lastOrNull()
+    // Primer registro recibido
+    val latestData = sensorDataList.firstOrNull()
+
+    // Función para determinar el color principal del texto y el contorno
+    val (textColor, strokeColor) = remember(status) {
+        when {
+            // Error, desconectado, fallido
+            status.contains("Error", ignoreCase = true) ||
+                    status.contains("Desconectado", ignoreCase = true) -> {
+                Color(0xFFDC2626) to Color.White // Rojo y contorno blanco
+            }
+            // Conectando, inicializando, esperando...
+            status.contains("Conectando", ignoreCase = true) ||
+                    status.contains("Esperando", ignoreCase = true) -> {
+                Color(0xFFF59E0B) to Color.Black // Naranja y contorno negro
+            }
+            // Conectado, leyendo datos, éxito
+            else -> {
+                Color(0xFF10B981) to Color.Black // Verde y contorno negro
+            }
+        }
+    }
 
     // Iniciar la conexión automáticamente
     LaunchedEffect(Unit) {
@@ -90,19 +111,24 @@ fun MedidasScreen(viewModel: SensorViewModel = viewModel()) {
             )
 
             // Estado de conexión
-            Box {
+            Box(modifier = Modifier.padding(top = 8.dp)) {
+                // Contorno (Stroke)
                 Text(
                     text = status,
-                    color = Color.Black, // Contorno
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.offset(x = 1.dp, y = 1.dp)
+                    color = strokeColor, // Usamos el color de contorno dinámico
+                    fontSize = 18.sp, // Un poco más grande para más impacto
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.offset(
+                        x = 1.dp,
+                        y = 1.dp
+                    ) // Offset para crear el efecto de contorno
                 )
+                // Texto principal
                 Text(
                     text = status,
-                    color = Color.White, // Texto principal
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
+                    color = textColor, // Usamos el color principal dinámico (Rojo, Verde o Naranja)
+                    fontSize = 18.sp, // Debe ser del mismo tamaño que el contorno
+                    fontWeight = FontWeight.Bold
                 )
             }
 
@@ -142,20 +168,6 @@ fun MedidasScreen(viewModel: SensorViewModel = viewModel()) {
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
             )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Botón de actualización
-            Button(
-                onClick = { /*viewModel.actualizarValoresAleatorios() */ },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
-                shape = RoundedCornerShape(50),
-                modifier = Modifier
-                    .height(50.dp)
-                    .width(220.dp)
-            ) {
-                Text("Actualizar medición", color = Color.White)
-            }
         }
     }
 }

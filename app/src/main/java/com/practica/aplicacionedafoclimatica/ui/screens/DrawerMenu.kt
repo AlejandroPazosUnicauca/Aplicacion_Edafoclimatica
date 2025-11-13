@@ -1,5 +1,7 @@
 package com.practica.aplicacionedafoclimatica.ui.screens
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -7,6 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -21,10 +24,12 @@ import com.practica.aplicacionedafoclimatica.ui.navigation.AppNavHost
 import kotlinx.coroutines.launch
 
 import com.practica.aplicacionedafoclimatica.ui.navigation.AppScreen
+import com.practica.aplicacionedafoclimatica.viewmodel.SensorViewModel
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DrawerMenu() {
+fun DrawerMenu(viewModel: SensorViewModel) {
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -32,7 +37,8 @@ fun DrawerMenu() {
     val menuItems = listOf(
         AppScreen.Medidas,
         AppScreen.Registros,
-        AppScreen.Alertas
+        AppScreen.Alertas,
+        AppScreen.Configuracion
     )
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -56,6 +62,11 @@ fun DrawerMenu() {
 
                 // Listado de ítems del menú
                 menuItems.forEach { screen ->
+                    // Separador visual para la Configuración
+                    if (screen == AppScreen.Configuracion) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    }
+
                     NavigationDrawerItem(
                         label = {
                             Text(
@@ -75,11 +86,19 @@ fun DrawerMenu() {
                         selected = currentRoute == screen.route,
                         onClick = {
                             navController.navigate(screen.route) {
-                                popUpTo(navController.graph.startDestinationId) {
-                                    saveState = true
+
+                                // Lógica de navegación adaptada:
+                                if (screen == AppScreen.Configuracion) {
+                                    // Si es Configuración, borra todo el historial de navegación de datos.
+                                    popUpTo("config") { inclusive = true }
+                                } else {
+                                    // Para las pantallas principales, solo navega al destino y mantiene el estado.
+                                    popUpTo(navController.graph.startDestinationId) {
+                                        saveState = true
+                                    }
+                                    restoreState = true
                                 }
                                 launchSingleTop = true
-                                restoreState = true
                             }
                             scope.launch { drawerState.close() }
                         },
@@ -122,7 +141,7 @@ fun DrawerMenu() {
             }
         ) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
-                AppNavHost(navController = navController)
+                AppNavHost(navController = navController, viewModel = viewModel)
             }
         }
     }

@@ -34,7 +34,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun RegistrosScreen(
     modifier: Modifier = Modifier,
-    viewModel: SensorViewModel = viewModel()
+    viewModel: SensorViewModel
 ) {
     val context = LocalContext.current
     val sensorDataList by viewModel.sensorDataList.collectAsState()
