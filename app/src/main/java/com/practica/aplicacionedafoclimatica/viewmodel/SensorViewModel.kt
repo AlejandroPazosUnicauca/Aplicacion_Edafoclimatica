@@ -5,17 +5,18 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import com.practica.aplicacionedafoclimatica.data.model.SensorData
+import com.practica.aplicacionedafoclimatica.data.conection.WifiClient
 import com.practica.aplicacionedafoclimatica.data.model.Notificacion
+import com.practica.aplicacionedafoclimatica.data.model.SensorData
 import com.practica.aplicacionedafoclimatica.data.model.TipoNotificacion
+import com.practica.aplicacionedafoclimatica.data.repository.SensorRepository
+import com.practica.aplicacionedafoclimatica.domain.AlertaInfo
+import com.practica.aplicacionedafoclimatica.domain.calcularAlertas
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import com.practica.aplicacionedafoclimatica.data.repository.SensorRepository
-import com.practica.aplicacionedafoclimatica.data.conection.WifiClient
-import com.practica.aplicacionedafoclimatica.ui.screens.medidas.*
-import kotlinx.coroutines.Job
 
 class SensorViewModel(application: Application) : AndroidViewModel(application) {
     private var repository: SensorRepository? = null
@@ -31,7 +32,6 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
     private val _alertasActivas = MutableStateFlow<List<AlertaInfo>>(emptyList())
     val alertasActivas: StateFlow<List<AlertaInfo>> = _alertasActivas
 
-    // NUEVO: flujo para notificaciones
     private val _notificaciones = MutableStateFlow<List<Notificacion>>(emptyList())
     val notificaciones: StateFlow<List<Notificacion>> = _notificaciones
 
@@ -40,6 +40,13 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
     private var connectJob: Job? = null
     private var listenJob: Job? = null
 
+    /**
+     * Configura la dirección del sensor, crea el repositorio asociado y inicia la conexión.
+     *
+     * @param ip Dirección IP del dispositivo sensor.
+     * @param port Puerto del servicio HTTP.
+     * @param path Ruta opcional del endpoint.
+     */
     fun setConnection(ip: String, port: Int, path: String) {
         disconnect()
         repository = SensorRepository(WifiClient(ip, port, path))
@@ -48,6 +55,9 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
         connect()
     }
 
+    /**
+     * Intenta abrir la conexión con el sensor y, si tiene éxito, inicia el ciclo de escucha.
+     */
     fun connect() {
         if (repository == null) {
             _status.value = "Error: IP y Puerto no configurados."
@@ -70,6 +80,9 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /**
+     * Ejecuta un bucle continuo que solicita datos del sensor y actualiza los estados de la UI.
+     */
     private fun listen() {
         listenJob?.cancel()
         listenJob = viewModelScope.launch {
@@ -93,11 +106,15 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /**
+     * Actualiza la lista de notificaciones con las alertas activas y elimina las ya resueltas.
+     *
+     * @param alertas Lista de alertas detectadas en la última lectura del sensor.
+     */
     private fun manejarNotificaciones(alertas: List<AlertaInfo>) {
         val nuevasNotificaciones = mutableListOf<Notificacion>()
         val actuales = _notificaciones.value.toMutableList()
 
-        // Agregar nuevas notificaciones solo si no existen
         alertas.forEach { alerta ->
             if (actuales.none { it.titulo == alerta.variable }) {
                 nuevasNotificaciones.add(
@@ -110,7 +127,6 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
 
-        // Eliminar notificaciones resueltas
         val actualizadas = actuales.filter { noti ->
             alertas.any { it.variable == noti.titulo }
         }
@@ -118,111 +134,9 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
         _notificaciones.value = actualizadas + nuevasNotificaciones
     }
 
-    private fun calcularAlertas(latestData: SensorData?): List<AlertaInfo> {
-        val listaAlertas = mutableListOf<AlertaInfo>()
-        if (latestData == null) return emptyList()
-
-        val lumenes = latestData.Lumenes.toFloat()
-        val tempAmbiente = latestData.Temperatura_ambiente.toFloat()
-        val humedadAmbiente = latestData.Humedad_ambiente.toFloat()
-        val lluvia = latestData.Lluvia.toFloat()
-        val humedadSuelo = latestData.Humedad_suelo.toFloat()
-        val tempSuelo = latestData.Temperatura_suelo.toFloat()
-        val ph = latestData.Ph
-        val fosforo = latestData.Fosforo.toFloat()
-        val nitrogeno = latestData.Nitrogeno.toFloat()
-        val potasio = latestData.Potasio.toFloat()
-
-        // --- Alertas de Temperatura Ambiente ---
-        if (tempAmbiente > rangosTempAmbiente.max) listaAlertas.add(
-            AlertaInfo("Temperatura Ambiente Alta", "${tempAmbiente}°C", "Aumentar ventilación o proveer sombra.", EstadoValor.PELIGRO)
-        )
-        if (tempAmbiente < rangosTempAmbiente.min) listaAlertas.add(
-            AlertaInfo("Temperatura Ambiente Baja", "${tempAmbiente}°C", "Considerar calefacción o protección térmica.", EstadoValor.PELIGRO)
-        )
-
-        // --- Alertas de Humedad Ambiente ---
-        if (humedadAmbiente > rangosHumedadAmbiente.max) listaAlertas.add(
-            AlertaInfo("Humedad Ambiente Excesiva", "${humedadAmbiente}%", "Mejorar la ventilación.", EstadoValor.PELIGRO)
-        )
-        if (humedadAmbiente < rangosHumedadAmbiente.min) listaAlertas.add(
-            AlertaInfo("Humedad Ambiente Baja", "${humedadAmbiente}%", "Aumentar la humedad con nebulizadores o riego.", EstadoValor.PELIGRO)
-        )
-
-        // --- ALERTA ESPECIAL: Riesgo de Roya (T y HR altas) ---
-        if (humedadAmbiente > rangosHumedadAmbiente.optimoEnd && tempAmbiente > rangosTempAmbiente.optimoEnd) listaAlertas.add(
-            AlertaInfo("Riesgo Alto de Roya", "HR: $humedadAmbiente% | Temp: $tempAmbiente°C", "Aumentar monitoreo y ventilación inmediatamente.", EstadoValor.PELIGRO)
-        )
-
-        // --- Alertas de Lúmenes ---
-        if (lumenes > rangosLumenes.max) listaAlertas.add(
-            AlertaInfo("Iluminación Excesiva", "${lumenes} Lux", "Proveer sombra parcial para evitar quemaduras.", EstadoValor.PELIGRO)
-        )
-        if (lumenes < rangosLumenes.min) listaAlertas.add(
-            AlertaInfo("Iluminación Insuficiente", "${lumenes} Lux", "Añadir iluminación artificial complementaria.", EstadoValor.PELIGRO)
-        )
-
-        // --- Alertas de Humedad del Suelo ---
-        if (humedadSuelo > rangosHumedadSuelo.max) listaAlertas.add(
-            AlertaInfo("Exceso de Humedad (Suelo)", "${humedadSuelo}%", "Evaluar drenaje y reducir frecuencia de riego.", EstadoValor.PELIGRO)
-        )
-        if (humedadSuelo < rangosHumedadSuelo.min) listaAlertas.add(
-            AlertaInfo("Sequía (Suelo)", "${humedadSuelo}%", "Incrementar el riego de manera inmediata.", EstadoValor.PELIGRO)
-        )
-
-        // --- Alertas de Temperatura del Suelo ---
-        // Asumiendo que el rango óptimo es 19°C - 22°C (rangosTempSuelo.optimoStart y rangosTempSuelo.optimoEnd)
-        if (tempSuelo > rangosTempSuelo.max) listaAlertas.add(
-            AlertaInfo("Temperatura del Suelo Alta", "${tempSuelo}°C", "Revisar los valores de operación o aplicar acolchado.", EstadoValor.PELIGRO)
-        )
-        if (tempSuelo < rangosTempSuelo.min) listaAlertas.add(
-            AlertaInfo("Temperatura del Suelo Baja", "${tempSuelo}°C", "Revisar los valores de operación o aplicar acolchado.", EstadoValor.PELIGRO)
-        )
-
-        // --- Alertas de pH ---
-        if (ph > rangosPh.max) listaAlertas.add(
-            AlertaInfo("pH Alto (Alcalinidad)", ph.toString(), "Aplicar azufre elemental o sulfato de aluminio.", EstadoValor.PELIGRO)
-        )
-        if (ph < rangosPh.min) listaAlertas.add(
-            AlertaInfo("pH Bajo (Acidez)", ph.toString(), "Aplicar cal dolomítica o calcita.", EstadoValor.PELIGRO)
-        )
-
-        // --- Alertas de Nitrógeno (N) ---
-        if (nitrogeno < rangosNitrogeno.min) listaAlertas.add(
-            AlertaInfo("Nitrógeno Bajo (N)", nitrogeno.toString(), "Aplicar fertilizante nitrogenado.", EstadoValor.PELIGRO)
-        )
-        // Nota: No se requiere Nitrogeno Max, ya que la deficiencia es el principal problema.
-        if (nitrogeno > rangosNitrogeno.max) listaAlertas.add(
-            AlertaInfo("Nitrógeno Excesivo (N)", nitrogeno.toString(), "Revisar la fertilización reciente.", EstadoValor.PELIGRO)
-        )
-
-        // --- Alertas de Fósforo (P) ---
-        if (fosforo < rangosFosforo.min) listaAlertas.add(
-            AlertaInfo("Fósforo Bajo (P)", fosforo.toString(), "Aplicar fuentes de fósforo.", EstadoValor.PELIGRO)
-        )
-        if (fosforo > rangosFosforo.max) listaAlertas.add(
-            AlertaInfo("Fósforo Excesivo (P)", fosforo.toString(), "Revisar la fertilización reciente.", EstadoValor.PELIGRO)
-        )
-
-        // --- Alertas de Potasio (K) ---
-        if (potasio < rangosPotasio.min) listaAlertas.add(
-            AlertaInfo("Potasio Bajo (K)", potasio.toString(), "Aplicar cloruro o sulfato de potasio.", EstadoValor.PELIGRO)
-        )
-        if (potasio > rangosPotasio.max) listaAlertas.add(
-            AlertaInfo("Potasio Excesivo (K)", potasio.toString(), "Revisar la fertilización reciente.", EstadoValor.PELIGRO)
-        )
-
-        // --- Alertas de Lluvia ---
-        if (lluvia > rangosLluvia.max) listaAlertas.add(
-            AlertaInfo("Precipitación Excesiva", "${lluvia} mm", "Proteger el cultivo del exceso de lluvia.", EstadoValor.PELIGRO)
-        )
-        if (lluvia < rangosLluvia.min) listaAlertas.add(
-            AlertaInfo("Falta de Precipitación", "${lluvia} mm", "Aumentar la frecuencia de riego, si es necesario.", EstadoValor.PELIGRO)
-        )
-
-        return listaAlertas
-    }
-
+    /**
+     * Detiene cualquier tarea activa y desconecta el repositorio asociado.
+     */
     private fun disconnect() {
         isListening = false
         connectJob?.cancel()
@@ -232,6 +146,9 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
         _status.value = "Desconectado"
     }
 
+    /**
+     * Se ejecuta cuando el ViewModel se destruye para cerrar la sesión de escucha del sensor.
+     */
     override fun onCleared() {
         disconnect()
         super.onCleared()

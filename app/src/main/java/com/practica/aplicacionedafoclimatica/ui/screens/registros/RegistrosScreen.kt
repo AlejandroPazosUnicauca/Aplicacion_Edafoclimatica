@@ -30,6 +30,12 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+/**
+ * Muestra la pantalla de registros históricos del sensor con filtros por año y mes.
+ *
+ * @param modifier Modificador opcional para personalizar la composición.
+ * @param viewModel ViewModel con los datos históricos del sensor.
+ */
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +47,6 @@ fun RegistrosScreen(
     val sensorDataList by viewModel.sensorDataList.collectAsState()
     val status by viewModel.status.collectAsState()
 
-    // 🟢 Conectar automáticamente al entrar en la pantalla
     LaunchedEffect(Unit) {
         viewModel.connect()
     }
@@ -63,7 +68,6 @@ fun RegistrosScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- Estado de conexión ---
             Text(
                 text = status,
                 color = Color.White,
@@ -87,7 +91,6 @@ fun RegistrosScreen(
                 }
             } else {
                 val fechas = sensorDataList.mapNotNull { it.fecha }
-                // Validar que haya fechas antes de intentar acceder al 'last()'
                 val anos = if (fechas.isNotEmpty()) fechas.map { it.substring(0, 4) }.distinct().sorted() else listOf("2025")
                 val meses = (1..12).map { it.toString().padStart(2, '0') }
 
@@ -98,7 +101,6 @@ fun RegistrosScreen(
                     it.fecha.startsWith("$anoSeleccionado-$mesSeleccionado")
                 }
 
-                // --- Filtros ---
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -193,14 +195,17 @@ fun RegistrosScreen(
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
-                // Pasamos la lista filtrada a la tabla
                 TablaDatos(sensorDataList = datosFiltrados)
             }
         }
     }
 }
 
-
+/**
+ * Renderiza una tabla con los registros históricos del sensor para una fecha concreta.
+ *
+ * @param sensorDataList Lista de lecturas a representar en la tabla.
+ */
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun TablaDatos(sensorDataList: List<SensorData>) {
@@ -218,8 +223,6 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
     }
 
     val scrollState = rememberScrollState()
-
-    // 🎨 CAMBIO 1: Color de texto más oscuro para mejor contraste
     val colorTextoTabla = Color(0xFF064e3b)
 
     val camposOrdenados = listOf(
@@ -235,26 +238,20 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
         "Potasio"
     )
 
-    // 🔃 CAMBIO 2: Invertir la lista.
-    // El JSON viene [nuevo, ... , viejo]
-    // .reversed() la convierte en [viejo, ... , nuevo]
-    // Así, el más nuevo (primer registro del JSON) queda a la derecha.
     val listaInvertida = sensorDataList.reversed()
-
     val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy\nh:mm a", Locale.getDefault())
 
-    // 🕒 CAMBIO 3: Formatear la fecha para incluir la hora
     val fechasHeaders = listaInvertida.map { data ->
         try {
             LocalDateTime.parse(data.fecha, DateTimeFormatter.ISO_DATE_TIME)
-                .format(dateFormatter) // <-- HORA AÑADIDA
+                .format(dateFormatter)
         } catch (e: Exception) {
             data.fecha
         }
     }
 
     val alturaDeFila = 70.dp
-    val alturaHeader = 65.dp // Altura para el encabezado de 2 líneas
+    val alturaHeader = 65.dp
 
     Row(
         modifier = Modifier
@@ -264,18 +261,15 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
             .padding(12.dp)
             .fillMaxWidth()
     ) {
-
-        // --- COLUMNA FIJA (Variables) ---
         Column(
             modifier = Modifier.width(150.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Encabezado Fijo
             Row(
                 modifier = Modifier
                     .background(Color(0xFFd1fae5), RoundedCornerShape(8.dp))
                     .fillMaxWidth()
-                    .height(alturaHeader), // <-- Altura de encabezado
+                    .height(alturaHeader),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
@@ -283,7 +277,7 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
                     text = "Variable",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = colorTextoTabla, // <-- Color oscuro
+                    color = colorTextoTabla,
                     textAlign = TextAlign.Center
                 )
             }
@@ -291,7 +285,6 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
             Spacer(modifier = Modifier.height(12.dp))
             Divider(color = Color(0xFFd1fae5), thickness = 1.dp)
 
-            // Filas Fijas (Nombres de variables)
             camposOrdenados.forEachIndexed { index, campo ->
                 Row(
                     modifier = Modifier
@@ -308,7 +301,7 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
                         text = campo.replace("_", " ").replace("N", "N").replaceFirstChar { it.uppercase() },
                         fontWeight = FontWeight.Medium,
                         fontSize = 17.sp,
-                        color = colorTextoTabla, // <-- Color oscuro
+                        color = colorTextoTabla,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
@@ -318,30 +311,28 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
                     Divider(thickness = 0.5.dp, color = Color(0xFFd1fae5))
                 }
             }
-        } // Fin de la Columna Fija
+        }
 
-        // --- COLUMNA DESPLAZABLE (Fechas y Datos) ---
         Column(
             modifier = Modifier
                 .weight(1f)
                 .horizontalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Encabezado Desplazable (Fechas)
             Row(
                 modifier = Modifier
                     .background(Color(0xFFd1fae5), RoundedCornerShape(8.dp))
-                    .height(alturaHeader), // <-- Altura de encabezado
+                    .height(alturaHeader),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 fechasHeaders.forEach { fecha ->
                     Text(
-                        text = fecha, // <-- Fecha y hora
+                        text = fecha,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp, // <-- Tamaño ajustado para 2 líneas
-                        lineHeight = 18.sp, // <-- Espaciado de línea
+                        fontSize = 16.sp,
+                        lineHeight = 18.sp,
                         modifier = Modifier.width(120.dp),
-                        color = colorTextoTabla, // <-- Color oscuro
+                        color = colorTextoTabla,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -350,9 +341,7 @@ fun TablaDatos(sensorDataList: List<SensorData>) {
             Spacer(modifier = Modifier.height(12.dp))
             Divider(color = Color(0xFFd1fae5), thickness = 1.dp)
 
-            // Filas Desplazables (Valores)
             camposOrdenados.forEachIndexed { index, campo ->
-                // Usamos la lista invertida para obtener los valores
                 val valores = listaInvertida.map { data ->
                     val field = data::class.java.getDeclaredField(campo)
                     field.isAccessible = true

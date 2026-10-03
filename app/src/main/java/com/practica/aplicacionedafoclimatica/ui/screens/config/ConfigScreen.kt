@@ -20,39 +20,37 @@ import com.practica.aplicacionedafoclimatica.R
 import com.practica.aplicacionedafoclimatica.ui.navigation.AppScreen
 import com.practica.aplicacionedafoclimatica.viewmodel.SensorViewModel
 
+/**
+ * Muestra la pantalla de configuración de conexión del sensor.
+ *
+ * @param onConnectSuccess Callback ejecutado cuando la conexión se inicializa correctamente.
+ * @param viewModel ViewModel que almacena el estado de la conexión.
+ */
 @Composable
 fun ConfigScreen(
     onConnectSuccess: () -> Unit,
     viewModel: SensorViewModel
 ) {
-    // Definimos el color verde oscuro principal para mayor contraste
     val PrimaryGreen = Color(0xFF065F46)
     val LightGreen = Color(0xFF059669)
 
     val textFieldColors = OutlinedTextFieldDefaults.colors(
-        // Color del borde cuando el campo NO está enfocado
         unfocusedBorderColor = PrimaryGreen.copy(alpha = 0.5f),
-        // Color del borde cuando el campo SÍ está enfocado (más vivo)
         focusedBorderColor = LightGreen,
-        // Color del texto que el usuario ingresa
         unfocusedTextColor = PrimaryGreen,
         focusedTextColor = PrimaryGreen,
-        // Color de la etiqueta ("Dirección IP")
         unfocusedLabelColor = PrimaryGreen.copy(alpha = 0.7f),
         focusedLabelColor = LightGreen,
-        // Color del cursor
         cursorColor = LightGreen
     )
 
-    // Estados para los campos de texto
-    var ip by remember { mutableStateOf("192.168.") } // IP por defecto
-    var port by remember { mutableStateOf("5001") } // Puerto por defecto
-    var urlPath by remember { mutableStateOf("") } // URL por defecto
+    var ip by remember { mutableStateOf("192.168.") }
+    var port by remember { mutableStateOf("5001") }
+    var urlPath by remember { mutableStateOf("") }
 
     val status by viewModel.status.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        // Imagen de fondo (la misma que usas en otras pantallas)
         Image(
             painter = painterResource(id = R.drawable.wallpaper2),
             contentDescription = "Fondo",
@@ -61,7 +59,6 @@ fun ConfigScreen(
             alpha = 0.9f
         )
 
-        // Tarjeta de configuración
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -83,7 +80,6 @@ fun ConfigScreen(
                     color = Color(0xFF065F46)
                 )
 
-                // Campo de Texto para IP
                 OutlinedTextField(
                     value = ip,
                     onValueChange = { ip = it },
@@ -94,7 +90,6 @@ fun ConfigScreen(
                     colors = textFieldColors
                 )
 
-                // Campo de Texto para Puerto
                 OutlinedTextField(
                     value = port,
                     onValueChange = { port = it },
@@ -116,20 +111,15 @@ fun ConfigScreen(
                     colors = textFieldColors
                 )
 
-                // Texto de estado
                 Text(
                     text = status,
                     fontSize = 14.sp,
                     color = Color(0xFF065F46)
                 )
 
-                // Botón Conectar
                 Button(
                     onClick = {
-                        // 1. Llama al ViewModel para establecer la conexión
                         viewModel.setConnection(ip = ip, port.toIntOrNull() ?: 5001, path = urlPath)
-
-                        // 2. Navega a la pantalla principal
                         onConnectSuccess()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),

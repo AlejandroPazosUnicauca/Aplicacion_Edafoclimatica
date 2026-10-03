@@ -14,14 +14,17 @@ import com.practica.aplicacionedafoclimatica.ui.screens.registros.RegistrosScree
 import com.practica.aplicacionedafoclimatica.viewmodel.SensorViewModel
 import com.practica.aplicacionedafoclimatica.ui.screens.config.ConfigScreen
 
+/**
+ * Configura el grafo de navegación principal de la aplicación según el estado de configuración del sensor.
+ *
+ * @param navController Controlador de navegación que gestiona las pantallas.
+ * @param viewModel ViewModel central con el estado de conexión y lecturas del sensor.
+ */
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNavHost(navController: NavHostController, viewModel: SensorViewModel) {
-
-    // Obtenemos el estado de configuración desde el ViewModel.
     val isConfigured by viewModel.isConfigured.collectAsState(initial = false)
 
-    // El punto de inicio es dinámico: Medidas si está configurado, Configuracion si no.
     val startRoute = if (isConfigured) {
         AppScreen.Medidas.route
     } else {
@@ -30,24 +33,19 @@ fun AppNavHost(navController: NavHostController, viewModel: SensorViewModel) {
 
     NavHost(
         navController = navController,
-        startDestination = startRoute // Usamos la ruta inicial determinada dinámicamente
+        startDestination = startRoute
     ) {
-        // RUTA DE CONFIGURACIÓN
         composable(AppScreen.Configuracion.route) {
-            // **IMPORTANTE: Pasamos la lógica de navegación como un callback.**
             ConfigScreen(
                 viewModel = viewModel,
                 onConnectSuccess = {
-                    // La navegación ocurre aquí, dentro del contexto del NavHost.
                     navController.navigate(AppScreen.Medidas.route) {
-                        // Limpia la pila para que la configuración ya no sea accesible
                         popUpTo(AppScreen.Configuracion.route) { inclusive = true }
                     }
                 }
             )
         }
 
-        // RUTAS PRINCIPALES DEL MENÚ LATERAL
         composable(AppScreen.Medidas.route) {
             MedidasScreen(navController = navController, viewModel = viewModel)
         }

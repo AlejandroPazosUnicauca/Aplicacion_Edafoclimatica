@@ -34,6 +34,11 @@ import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
+/**
+ * Muestra la estructura principal de la aplicación con menú lateral, barra superior y navegación.
+ *
+ * @param viewModel ViewModel con el estado global de las mediciones y alertas.
+ */
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,7 +64,6 @@ fun DrawerMenu(viewModel: SensorViewModel) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // 🧱 Capa principal: permite superposiciones
     Box(modifier = Modifier.fillMaxSize()) {
         ModalNavigationDrawer(
             drawerState = drawerState,
@@ -170,23 +174,20 @@ fun DrawerMenu(viewModel: SensorViewModel) {
             }
         }
 
-        // 🪄 Panel flotante sobre todo el contenido
         AnimatedVisibility(
             visible = menuVisible,
             enter = fadeIn() + expandVertically(),
             exit = fadeOut() + shrinkVertically(),
             modifier = Modifier
-                .fillMaxSize() // ocupa toda la pantalla para detectar clics fuera
+                .fillMaxSize()
                 .zIndex(10f)
         ) {
-            // Fondo semitransparente clickeable para cerrar
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.4f))
-                    .clickable { menuVisible = false } // cierra al tocar fuera
+                    .clickable { menuVisible = false }
             ) {
-                // Tarjeta flotante del menú
                 Card(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -240,8 +241,12 @@ fun DrawerMenu(viewModel: SensorViewModel) {
     }
 }
 
-
-
+/**
+ * Muestra una fila individual con el texto y la hora de una notificación.
+ *
+ * @param mensaje Texto descriptivo de la alerta o recomendación.
+ * @param hora Hora en la que se generó la notificación.
+ */
 @Composable
 fun NotificationItemRow(mensaje: String, hora: String) {
     Row(

@@ -24,17 +24,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.practica.aplicacionedafoclimatica.data.model.SensorData
+import com.practica.aplicacionedafoclimatica.domain.AlertaInfo
+import com.practica.aplicacionedafoclimatica.ui.screens.medidas.obtenerColoresEstado
+import com.practica.aplicacionedafoclimatica.ui.theme.color
 import com.practica.aplicacionedafoclimatica.viewmodel.SensorViewModel
-// Importamos la lógica de rangos y estados de MedidasScreen
-import com.practica.aplicacionedafoclimatica.ui.screens.medidas.*
 
+/**
+ * Muestra la vista principal de alertas y recomendaciones activas del sistema.
+ *
+ * @param viewModel ViewModel que expone el estado de conexión y las alertas generadas.
+ */
 @Composable
 fun AlertasScreen(viewModel: SensorViewModel) {
     val status by viewModel.status.collectAsState()
     val alertas by viewModel.alertasActivas.collectAsState()
-    // Obtenemos los colores de estado (Verde, Naranja, Rojo)
     val (textColor, strokeColor) = obtenerColoresEstado(status)
 
     Box(
@@ -52,11 +55,9 @@ fun AlertasScreen(viewModel: SensorViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp), // Padding general
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
-            // Título
             Text(
                 text = "Alertas y Recomendaciones",
                 fontSize = 26.sp,
@@ -65,7 +66,6 @@ fun AlertasScreen(viewModel: SensorViewModel) {
                 modifier = Modifier.padding(vertical = 16.dp)
             )
 
-            // Estado de conexión
             Box(modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)) {
                 Text(
                     text = status,
@@ -82,9 +82,7 @@ fun AlertasScreen(viewModel: SensorViewModel) {
                 )
             }
 
-            // --- Lista de Alertas ---
             if (alertas.isEmpty()) {
-                // Mensaje si no hay alertas
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -93,7 +91,7 @@ fun AlertasScreen(viewModel: SensorViewModel) {
                     colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.9f))
                 ) {
                     Text(
-                        text = "¡Todo en orden!\nNo hay alertas activas.",
+                        text = "Todo en orden\nNo hay alertas activas.",
                         color = Color(0xFF064e3b),
                         fontWeight = FontWeight.Medium,
                         fontSize = 18.sp,
@@ -102,7 +100,6 @@ fun AlertasScreen(viewModel: SensorViewModel) {
                     )
                 }
             } else {
-                // Lista si SÍ hay alertas
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -118,7 +115,9 @@ fun AlertasScreen(viewModel: SensorViewModel) {
 }
 
 /**
- * Composable para mostrar una tarjeta de alerta individual.
+ * Representa una alerta individual con su valor actual y la recomendación asociada.
+ *
+ * @param alerta Datos de la alerta a visualizar.
  */
 @Composable
 fun AlertaCard(alerta: AlertaInfo) {
@@ -132,39 +131,34 @@ fun AlertaCard(alerta: AlertaInfo) {
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icono de Alerta
             Icon(
                 imageVector = Icons.Default.Warning,
                 contentDescription = "Alerta",
-                tint = alerta.estado.color, // Color dinámico (Rojo)
+                tint = alerta.estado.color,
                 modifier = Modifier
                     .size(48.dp)
                     .padding(end = 16.dp)
             )
 
-            // Textos
             Column(modifier = Modifier.weight(1f)) {
-                // Título de la Variable
                 Text(
                     text = alerta.variable,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = Color(0xFF064e3b) // Verde oscuro
+                    color = Color(0xFF064e3b)
                 )
-                // Valor Actual
                 Text(
                     text = "Valor: ${alerta.valorActual}",
                     fontWeight = FontWeight.Medium,
                     fontSize = 15.sp,
-                    color = Color(0xFF065f46) // Verde medio
+                    color = Color(0xFF065f46)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                // Recomendación
                 Text(
                     text = alerta.recomendacion,
                     fontWeight = FontWeight.Normal,
                     fontSize = 15.sp,
-                    color = Color(0xFF064e3b), // Verde oscuro
+                    color = Color(0xFF064e3b),
                     lineHeight = 20.sp
                 )
             }

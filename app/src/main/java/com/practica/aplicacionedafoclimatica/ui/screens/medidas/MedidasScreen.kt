@@ -17,38 +17,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.practica.aplicacionedafoclimatica.domain.EstadoValor
+import com.practica.aplicacionedafoclimatica.domain.RangosAlerta
+import com.practica.aplicacionedafoclimatica.domain.obtenerEstadoValor
+import com.practica.aplicacionedafoclimatica.domain.rangosFosforo
+import com.practica.aplicacionedafoclimatica.domain.rangosHumedadAmbiente
+import com.practica.aplicacionedafoclimatica.domain.rangosHumedadSuelo
+import com.practica.aplicacionedafoclimatica.domain.rangosLluvia
+import com.practica.aplicacionedafoclimatica.domain.rangosLumenes
+import com.practica.aplicacionedafoclimatica.domain.rangosNitrogeno
+import com.practica.aplicacionedafoclimatica.domain.rangosPh
+import com.practica.aplicacionedafoclimatica.domain.rangosPotasio
+import com.practica.aplicacionedafoclimatica.domain.rangosTempAmbiente
+import com.practica.aplicacionedafoclimatica.domain.rangosTempSuelo
+import com.practica.aplicacionedafoclimatica.ui.theme.color
 import com.practica.aplicacionedafoclimatica.viewmodel.SensorViewModel
-import java.time.format.TextStyle
 
-
-/**
- * Define el estado de un valor para el código de colores.
- */
-enum class EstadoValor(val color: Color) {
-    OPTIMO(Color(0xFF059669)),     // Verde
-    ADVERTENCIA(Color(0xFFF59E0B)), // Amarillo/Ámbar
-    PELIGRO(Color(0xFFDC2626))      // Rojo
-}
-
-/**
- * Almacena los rangos para una variable específica.
- * optimoStart y optimoEnd definen el rango "Verde".
- * min y max definen el rango "Amarillo".
- * Por debajo de min o por encima de max es "Rojo".
- */
-data class RangosAlerta(
-    val min: Float,
-    val optimoStart: Float,
-    val optimoEnd: Float,
-    val max: Float,
-    val maxAbsoluto: Float // El valor máximo para el medidor (ej. 100% o 25000 Lux)
-)
-
-/**
- * Contenedor para la información de cada medidor.
- */
 data class VariableMedida(
     val label: String,
     val valor: Float,
@@ -56,15 +41,11 @@ data class VariableMedida(
     val estado: EstadoValor
 )
 
-data class AlertaInfo(
-    val variable: String,
-    val valorActual: String,
-    val recomendacion: String,
-    val estado: EstadoValor // Para colorear el ícono
-)
-
 /**
- * Colores para el estado de la conexión (sin cambios).
+ * Devuelve los colores asociados al estado actual de la conexión o del sistema.
+ *
+ * @param status Texto del estado actual de la conexión.
+ * @return Pareja de colores con el texto y el contorno que corresponden al estado.
  */
 @Composable
 fun obtenerColoresEstado(status: String): Pair<Color, Color> {
@@ -72,62 +53,37 @@ fun obtenerColoresEstado(status: String): Pair<Color, Color> {
         when {
             status.contains("Error", ignoreCase = true) ||
                     status.contains("Desconectado", ignoreCase = true) -> {
-                Color(0xFFDC2626) to Color.White // Rojo
+                Color(0xFFDC2626) to Color.White
             }
             status.contains("Conectando", ignoreCase = true) ||
                     status.contains("Esperando", ignoreCase = true) -> {
-                Color(0xFFF59E0B) to Color.Black // Naranja
+                Color(0xFFF59E0B) to Color.Black
             }
             else -> {
-                Color(0xFF10B981) to Color.Black // Verde
+                Color(0xFF10B981) to Color.Black
             }
         }
     }
 }
 
 /**
- * Calcula el estado (color) de un valor según sus rangos.
+ * Muestra la pantalla con las mediciones actuales del sensor en formato visual por variables.
+ *
+ * @param navController Controlador de navegación de la pantalla actual.
+ * @param viewModel ViewModel con los datos más recientes del sensor.
  */
-fun obtenerEstadoValor(valor: Float, rangos: RangosAlerta): EstadoValor {
-    return when {
-        // Óptimo (Verde)
-        valor >= rangos.optimoStart && valor <= rangos.optimoEnd -> EstadoValor.OPTIMO
-        // Advertencia (Amarillo)
-        (valor >= rangos.min && valor < rangos.optimoStart) ||
-                (valor > rangos.optimoEnd && valor <= rangos.max) -> EstadoValor.ADVERTENCIA
-        // Peligro (Rojo)
-        else -> EstadoValor.PELIGRO
-    }
-}
-
-val rangosLumenes = RangosAlerta(min = 7000f, optimoStart = 12000f, optimoEnd = 20000f, max = 25000f, maxAbsoluto = 30000f)
-val rangosTempAmbiente = RangosAlerta(min = 17f, optimoStart = 19f, optimoEnd = 21.5f, max = 23f, maxAbsoluto = 50f) // Max absoluto 50 (arbitrario)
-val rangosHumedadAmbiente = RangosAlerta(min = 60f, optimoStart = 75f, optimoEnd = 85f, max = 90f, maxAbsoluto = 100f)
-val rangosLluvia = RangosAlerta(min = 1000f, optimoStart = 1660f, optimoEnd = 2000f, max = 3000f, maxAbsoluto = 4000f)
-val rangosHumedadSuelo = RangosAlerta(min = 40f, optimoStart = 75f, optimoEnd = 85f, max = 90f, maxAbsoluto = 100f)
-val rangosTempSuelo = RangosAlerta(min = 17f, optimoStart = 19f, optimoEnd = 22f, max = 27f, maxAbsoluto = 35f) // Max absoluto 50
-val rangosFosforo = RangosAlerta(min = 20f, optimoStart = 20f, optimoEnd = 30f, max = 40f, maxAbsoluto = 50f) // Max absoluto 100
-val rangosNitrogeno = RangosAlerta(min = 60f, optimoStart = 60f, optimoEnd = 80f, max = 100f, maxAbsoluto = 120f)
-val rangosPotasio = RangosAlerta(min = 60f, optimoStart = 60f, optimoEnd = 80f, max = 100f, maxAbsoluto = 120f)
-val rangosPh = RangosAlerta(min = 5.0f, optimoStart = 5.5f, optimoEnd = 6.5f, max = 7.5f, maxAbsoluto = 14f) // Max absoluto 14
-
-
 @Composable
 fun MedidasScreen(navController: NavHostController, viewModel: SensorViewModel) {
-    // Se obtienen los datos del ViewModel
     val sensorDataList by viewModel.sensorDataList.collectAsState()
     val status by viewModel.status.collectAsState()
 
-    // Primer registro recibido
     val latestData = sensorDataList.firstOrNull()
     val (textColor, strokeColor) = obtenerColoresEstado(status)
 
-    // Iniciar la conexión automáticamente
     LaunchedEffect(Unit) {
         viewModel.connect()
     }
 
-    // Obtenemos los valores o usamos 0 por defecto
     val lumenes = latestData?.Lumenes?.toFloat() ?: 0f
     val temperaturaAmbiente = latestData?.Temperatura_ambiente?.toFloat() ?: 0f
     val humedadAmbiente = latestData?.Humedad_ambiente?.toFloat() ?: 0f
@@ -151,7 +107,6 @@ fun MedidasScreen(navController: NavHostController, viewModel: SensorViewModel) 
         VariableMedida("Potasio (K)", potasio, rangosPotasio, obtenerEstadoValor(potasio, rangosPotasio))
     )
 
-    // Calculamos el estado del pH por separado
     val estadoPh = obtenerEstadoValor(ph, rangosPh)
 
     Box(
@@ -171,11 +126,8 @@ fun MedidasScreen(navController: NavHostController, viewModel: SensorViewModel) 
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
-            //verticalArrangement = Arrangement.spacedBy(40.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
-            // Título
             Text(
                 text = "Mediciones Actuales",
                 fontSize = 26.sp,
@@ -185,24 +137,21 @@ fun MedidasScreen(navController: NavHostController, viewModel: SensorViewModel) 
                     .padding(vertical = 16.dp)
             )
 
-            // Estado de conexión
             Box(modifier = Modifier.padding(top = 8.dp)) {
-                // Contorno (Stroke)
                 Text(
                     text = status,
-                    color = strokeColor, // Usamos el color de contorno dinámico
-                    fontSize = 18.sp, // Un poco más grande para más impacto
+                    color = strokeColor,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.offset(
                         x = 1.dp,
                         y = 1.dp
-                    ) // Offset para crear el efecto de contorno
+                    )
                 )
-                // Texto principal
                 Text(
                     text = status,
-                    color = textColor, // Usamos el color principal dinámico (Rojo, Verde o Naranja)
-                    fontSize = 18.sp, // Debe ser del mismo tamaño que el contorno
+                    color = textColor,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -219,17 +168,17 @@ fun MedidasScreen(navController: NavHostController, viewModel: SensorViewModel) 
                         label = item1.label,
                         value = item1.valor,
                         maxValue = item1.rangos.maxAbsoluto,
-                        status = item1.estado, // 👈 Pasamos el estado (color)
+                        status = item1.estado,
                         modifier = Modifier.weight(1f)
                     )
 
                     if (i + 1 < variables.size) {
-                        val item2 = variables[i+1]
+                        val item2 = variables[i + 1]
                         VariableCircle(
                             label = item2.label,
                             value = item2.valor,
                             maxValue = item2.rangos.maxAbsoluto,
-                            status = item2.estado, // 👈 Pasamos el estado (color)
+                            status = item2.estado,
                             modifier = Modifier.weight(1f)
                         )
                     } else {
@@ -238,12 +187,11 @@ fun MedidasScreen(navController: NavHostController, viewModel: SensorViewModel) 
                 }
             }
 
-            // pH con barra horizontal
             Spacer(modifier = Modifier.height(24.dp))
             PhBar(
                 label = "Nivel de pH",
                 value = ph,
-                status = estadoPh, // 👈 Pasamos el estado (color)
+                status = estadoPh,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
@@ -252,15 +200,23 @@ fun MedidasScreen(navController: NavHostController, viewModel: SensorViewModel) 
     }
 }
 
+/**
+ * Dibuja un círculo con progreso para representar una variable y su estado de salud.
+ *
+ * @param label Nombre de la variable mostrada.
+ * @param value Valor actual de la medida.
+ * @param maxValue Máximo absoluto usado para escalar el progreso.
+ * @param status Estado que determina el color del indicador.
+ * @param modifier Modificador de composición opcional.
+ */
 @Composable
 fun VariableCircle(
     label: String,
     value: Float,
     maxValue: Float,
-    status: EstadoValor, // 👈 Acepta el estado
+    status: EstadoValor,
     modifier: Modifier = Modifier
 ) {
-    // El progreso se calcula sobre el máximo absoluto (ej. 100% o 25000 Lux)
     val progress = (value / maxValue).coerceIn(0f, 1f)
 
     Column(
@@ -291,7 +247,6 @@ fun VariableCircle(
                 .size(110.dp)
         ) {
             Canvas(modifier = Modifier.matchParentSize()) {
-                // Fondo circular
                 drawArc(
                     color = Color(0xFFd1fae5),
                     startAngle = -90f,
@@ -299,9 +254,8 @@ fun VariableCircle(
                     useCenter = false,
                     style = Stroke(width = 10.dp.toPx(), cap = StrokeCap.Round)
                 )
-                // Progreso del valor
                 drawArc(
-                    color = status.color, // 👈 Usamos el color del estado
+                    color = status.color,
                     startAngle = -90f,
                     sweepAngle = 360f * progress,
                     useCenter = false,
@@ -321,14 +275,21 @@ fun VariableCircle(
     }
 }
 
+/**
+ * Muestra una barra horizontal de progreso para representar el nivel de pH actual.
+ *
+ * @param label Nombre visible de la métrica.
+ * @param value Valor de pH actual.
+ * @param status Estado que decide el color de la barra.
+ * @param modifier Modificador de composición opcional.
+ */
 @Composable
 fun PhBar(
     label: String,
     value: Float,
-    status: EstadoValor, // 👈 Acepta el estado
+    status: EstadoValor,
     modifier: Modifier = Modifier
 ) {
-    // El progreso se sigue calculando sobre 14
     val normalized = (value / 14f).coerceIn(0f, 1f)
 
     Column(
@@ -351,7 +312,7 @@ fun PhBar(
                     .fillMaxHeight()
                     .fillMaxWidth(normalized)
                     .background(
-                        color = status.color, // 👈 Usamos el color del estado
+                        color = status.color,
                         shape = RoundedCornerShape(12.dp)
                     )
             )

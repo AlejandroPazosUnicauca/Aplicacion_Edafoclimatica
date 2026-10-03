@@ -21,28 +21,25 @@ import com.practica.aplicacionedafoclimatica.ui.theme.AplicacionEdafoclimaticaTh
 import com.practica.aplicacionedafoclimatica.viewmodel.SensorViewModel
 
 class MainActivity : ComponentActivity() {
+    /**
+     * Inicializa la actividad principal, aplica el tema y despliega el menú principal de navegación.
+     *
+     * @param savedInstanceState Estado previo de la instancia de la actividad.
+     */
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             AplicacionEdafoclimaticaTheme {
-                // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // 1. Crear el NavController principal
                     val navController = rememberNavController()
-
-                    // 2. Crear UNA instancia del ViewModel
-                    //    Se compartirá entre ConfigScreen y DrawerMenu
                     val sensorViewModel: SensorViewModel = viewModel()
-
-                    // 3. Definir el NavHost
-                    DrawerMenu(viewModel= sensorViewModel)
+                    DrawerMenu(viewModel = sensorViewModel)
                 }
-
             }
         }
     }

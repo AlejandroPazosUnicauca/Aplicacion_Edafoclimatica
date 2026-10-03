@@ -36,10 +36,16 @@ private val LightColorScheme = lightColorScheme(
     */
 )
 
+/**
+ * Aplica el tema visual de la aplicación con soporte para color dinámico y esquema oscuro o claro.
+ *
+ * @param darkTheme Indica si se debe usar el tema oscuro.
+ * @param dynamicColor Habilita paletas dinámicas en dispositivos Android 12+.
+ * @param content Contenido de la UI que se renderiza dentro del tema.
+ */
 @Composable
 fun AplicacionEdafoclimaticaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
